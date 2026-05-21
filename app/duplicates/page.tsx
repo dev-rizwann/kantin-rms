@@ -11,12 +11,12 @@ export default function DuplicatesPage() {
     <>
       <PageHeader
         title="Duplicate items"
-        subtitle={`${duplicates.length} groups detected via fuzzy title match (Levenshtein on tokens). Highest-sales item in each group is shown first as the suggested "keep" record.`}
+        subtitle={`${duplicates.length} groups detected. Match rule: fuzzy title (Levenshtein on tokens) + (same category OR same price). Items with the same name in different categories at different prices — e.g. Food panda markup vs in-store — are treated as intentional and NOT flagged.`}
       />
 
       {duplicates.length === 0 && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-md px-4 py-3 text-sm text-emerald-800">
-          ✅ No duplicate groups detected.
+          ✅ No duplicate groups detected under the current rule.
         </div>
       )}
 
