@@ -282,6 +282,8 @@ export interface H8SessionRow {
 }
 
 export const getH8Sessions = cache(async (): Promise<H8SessionRow[]> => {
+  // ONE scan of mp_receipt × mp_checkout (vs 3 correlated subqueries × 112 sessions).
+  // The blob-derived views can't use indexes, so any nested scan is catastrophic.
   const rows = await prisma.$queryRaw<{
     id: bigint
     start_time: Date
@@ -294,6 +296,17 @@ export const getH8Sessions = cache(async (): Promise<H8SessionRow[]> => {
     gross_total: number
     void_tickets: bigint
   }[]>`
+    WITH session_agg AS (
+      SELECT
+        r.session_id,
+        COUNT(*) FILTER (WHERE NOT c.void)      AS tickets,
+        COALESCE(SUM(c.total) FILTER (WHERE NOT c.void), 0) AS gross_total,
+        COUNT(*) FILTER (WHERE c.void)          AS void_tickets
+      FROM mp_receipt r
+      JOIN mp_checkout c ON c.receipt_id = r.id AND c.kantin_slug = ${KANTIN}
+      WHERE r.kantin_slug = ${KANTIN}
+      GROUP BY r.session_id
+    )
     SELECT
       s.id,
       s.start_time,
@@ -302,19 +315,14 @@ export const getH8Sessions = cache(async (): Promise<H8SessionRow[]> => {
       COALESCE(s.petty_cash, 0) AS petty_cash,
       (s1.fname || ' ' || s1.sname) AS opened_by,
       CASE WHEN s2.fname IS NULL THEN NULL ELSE s2.fname || ' ' || s2.sname END AS closed_by,
-      COALESCE((SELECT COUNT(*) FROM mp_receipt r
-                JOIN mp_checkout c ON c.receipt_id = r.id AND c.kantin_slug=${KANTIN}
-                WHERE r.session_id = s.id AND r.kantin_slug=${KANTIN} AND NOT c.void), 0) AS tickets,
-      COALESCE((SELECT SUM(c.total) FROM mp_receipt r
-                JOIN mp_checkout c ON c.receipt_id = r.id AND c.kantin_slug=${KANTIN}
-                WHERE r.session_id = s.id AND r.kantin_slug=${KANTIN} AND NOT c.void), 0) AS gross_total,
-      COALESCE((SELECT COUNT(*) FROM mp_receipt r
-                JOIN mp_checkout c ON c.receipt_id = r.id AND c.kantin_slug=${KANTIN}
-                WHERE r.session_id = s.id AND r.kantin_slug=${KANTIN} AND c.void), 0) AS void_tickets
+      COALESCE(ag.tickets, 0)      AS tickets,
+      COALESCE(ag.gross_total, 0)  AS gross_total,
+      COALESCE(ag.void_tickets, 0) AS void_tickets
     FROM mp_session s
-    LEFT JOIN mp_staff s1 ON s1.id = s.staff_start_id AND s1.kantin_slug=${KANTIN}
-    LEFT JOIN mp_staff s2 ON s2.id = s.staff_close_id AND s2.kantin_slug=${KANTIN}
-    WHERE s.kantin_slug=${KANTIN}
+    LEFT JOIN mp_staff s1 ON s1.id = s.staff_start_id AND s1.kantin_slug = ${KANTIN}
+    LEFT JOIN mp_staff s2 ON s2.id = s.staff_close_id AND s2.kantin_slug = ${KANTIN}
+    LEFT JOIN session_agg ag ON ag.session_id = s.id
+    WHERE s.kantin_slug = ${KANTIN}
     ORDER BY s.start_time DESC
   `
   return rows.map((r) => ({
@@ -444,6 +452,7 @@ export interface H8CategoryRow {
 }
 
 export const getH8Categories = cache(async (): Promise<H8CategoryRow[]> => {
+  // Single CTE scan instead of correlated subqueries per category.
   const rows = await prisma.$queryRaw<{
     id: bigint
     title: string
@@ -452,20 +461,29 @@ export const getH8Categories = cache(async (): Promise<H8CategoryRow[]> => {
     total_qty: bigint
     total_sales: number | null
   }[]>`
+    WITH cat_items AS (
+      SELECT category_id, COUNT(*) AS n FROM mp_item WHERE kantin_slug=${KANTIN} GROUP BY category_id
+    ),
+    cat_sales AS (
+      SELECT i.category_id,
+             COUNT(*)                 AS qty,
+             COALESCE(SUM(s.price),0) AS sales
+      FROM mp_itemsale s
+      JOIN mp_item i ON i.id = s.item_id AND i.kantin_slug=${KANTIN}
+      LEFT JOIN mp_cancel cn ON cn.itemsale_id = s.id AND cn.kantin_slug=${KANTIN}
+      WHERE s.kantin_slug=${KANTIN} AND cn.id IS NULL
+      GROUP BY i.category_id
+    )
     SELECT
       cat.id,
       cat.title,
       cat.status,
-      (SELECT COUNT(*) FROM mp_item i WHERE i.category_id = cat.id AND i.kantin_slug=${KANTIN}) AS item_count,
-      (SELECT COUNT(*) FROM mp_itemsale s
-        JOIN mp_item i ON i.id = s.item_id AND i.kantin_slug=${KANTIN}
-        LEFT JOIN mp_cancel cn ON cn.itemsale_id = s.id AND cn.kantin_slug=${KANTIN}
-        WHERE s.kantin_slug=${KANTIN} AND i.category_id = cat.id AND cn.id IS NULL) AS total_qty,
-      (SELECT COALESCE(SUM(s.price),0) FROM mp_itemsale s
-        JOIN mp_item i ON i.id = s.item_id AND i.kantin_slug=${KANTIN}
-        LEFT JOIN mp_cancel cn ON cn.itemsale_id = s.id AND cn.kantin_slug=${KANTIN}
-        WHERE s.kantin_slug=${KANTIN} AND i.category_id = cat.id AND cn.id IS NULL) AS total_sales
+      COALESCE(ci.n, 0)     AS item_count,
+      COALESCE(cs.qty, 0)   AS total_qty,
+      COALESCE(cs.sales, 0) AS total_sales
     FROM mp_category cat
+    LEFT JOIN cat_items ci ON ci.category_id = cat.id
+    LEFT JOIN cat_sales cs ON cs.category_id = cat.id
     WHERE cat.kantin_slug=${KANTIN}
     ORDER BY cat.title
   `
