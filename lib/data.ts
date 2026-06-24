@@ -1,5 +1,3 @@
-import raw from "@/data/dashboard.json"
-
 export interface Meta {
   generated_at: string
   first_sale_date: string | null
@@ -193,4 +191,9 @@ export interface Dashboard {
   duplicates: DuplicateGroup[]
 }
 
-export const dashboard = raw as unknown as Dashboard
+// Per-kantin data is now exported from "./kantins".
+// Backward-compatible: existing pages can still `import { dashboard } from "@/lib/data"`
+// and they get the H-8 dataset, which is the only live one for now.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+import { kantins } from "./kantins"
+export const dashboard = kantins["h8"].data as Dashboard

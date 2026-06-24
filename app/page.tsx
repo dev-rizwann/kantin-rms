@@ -1,119 +1,117 @@
-import { KpiCard } from "@/components/KpiCard"
-import { Card, CardBody, CardHeader } from "@/components/Card"
-import { DonutChart, MiniLineChart, SimpleBarChart } from "@/components/Charts"
-import { PageHeader, Section } from "@/components/PageHeader"
-import { dashboard } from "@/lib/data"
+import Link from "next/link"
+import clsx from "clsx"
+import { kantinList } from "@/lib/kantins"
 import { money, num, shortDate } from "@/lib/format"
 
-export default function OverviewPage() {
-  const { summary, daily, top_items_30d, categories, payment_types, hourly_pattern, sessions, duplicates } = dashboard
-
-  const avgTicket = summary.total_tickets ? summary.total_gross / summary.total_tickets : 0
-  const recent = daily.slice(-30)
-  const openSessions = sessions.filter((s) => s.status === "open")
-
-  // Category bar chart data sorted by sales
-  const topCategories = [...categories]
-    .filter((c) => (c.category || "").trim().length > 0)
-    .sort((a, b) => b.total_sales - a.total_sales)
-    .slice(0, 8)
-
-  // Donut for active payment types
-  const paymentMix = payment_types.filter((p) => p.net_paid > 0).slice(0, 6)
-
+export default function LandingPage() {
   return (
-    <>
-      <PageHeader
-        title="Overview"
-        subtitle={`All-time totals through ${shortDate(dashboard.meta.last_sale_date)} · ${summary.days_with_sales} days of sales`}
-      />
-
-      {openSessions.length > 0 && (
-        <div className="mb-6 px-4 py-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800">
-          ⚠️ {openSessions.length} cashier {openSessions.length === 1 ? "session is" : "sessions are"} currently open.
-          {openSessions[0] && (
-            <>
-              {" "}Latest: <strong>{openSessions[0].opened_by}</strong> opened {shortDate(openSessions[0].open_time)} ·
-              {" "}{num(openSessions[0].tickets)} tickets · {money(openSessions[0].gross_total, { compact: true })}
-            </>
-          )}
+    <main className="min-h-screen flex flex-col">
+      <header className="px-6 md:px-12 py-8 border-b border-slate-200 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-xs uppercase tracking-widest text-slate-500 font-medium">IESPL</div>
+          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">Kantin RMS</h1>
+          <p className="text-slate-500 mt-2">Reporting &amp; management across all locations.</p>
         </div>
-      )}
+      </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
-        <KpiCard label="Gross Sales" value={money(summary.total_gross, { compact: true })} sub={`${num(summary.days_with_sales)} days`} />
-        <KpiCard label="Tickets" value={num(summary.total_tickets)} sub={`avg ${money(avgTicket, { compact: true })}`} />
-        <KpiCard label="Items Sold" value={num(summary.items_sold)} sub={`${num(summary.distinct_items_sold)} distinct`} />
-        <KpiCard label="Voids" value={num(summary.void_tickets)} sub={money(summary.void_gross)} tone={summary.void_tickets > 50 ? "warn" : "default"} />
-        <KpiCard label="Cancels" value={num(summary.total_cancels)} sub={money(summary.total_cancel_amount)} tone={summary.total_cancels > 50 ? "warn" : "default"} />
-        <KpiCard label="Refunds" value={num(summary.total_refunds)} sub={money(summary.total_refund_amount)} tone={summary.total_refunds > 10 ? "warn" : "default"} />
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-4 mb-8">
-        <Card className="lg:col-span-2">
-          <CardHeader title="Daily gross — last 30 days" />
-          <CardBody>
-            <MiniLineChart data={recent} xKey="sale_date" yKey="gross_total" />
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader title="Payment mix" />
-          <CardBody>
-            <DonutChart data={paymentMix} nameKey="payment_type" valueKey="net_paid" />
-          </CardBody>
-        </Card>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-4 mb-8">
-        <Card>
-          <CardHeader title="Top categories by sales" sub="all-time" />
-          <CardBody>
-            <SimpleBarChart data={topCategories} xKey="category" yKey="total_sales" color="#10b981" />
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader title="Sales by hour" sub="all items, non-canceled" />
-          <CardBody>
-            <SimpleBarChart data={hourly_pattern} xKey="hour_of_day" yKey="gross" color="#f59e0b" />
-          </CardBody>
-        </Card>
-      </div>
-
-      <Section title="Top 10 items — last 30 days" right={<span className="text-xs text-slate-500">{top_items_30d.length} of {summary.distinct_items_sold}</span>}>
-        <Card>
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">#</th>
-                <th className="px-3 py-2 text-left font-medium">Item</th>
-                <th className="px-3 py-2 text-left font-medium">Category</th>
-                <th className="px-3 py-2 text-right font-medium">Qty</th>
-                <th className="px-3 py-2 text-right font-medium">Sales</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {top_items_30d.slice(0, 10).map((r, i) => (
-                <tr key={r.item_id} className="hover:bg-slate-50">
-                  <td className="px-3 py-2 text-slate-400">{i + 1}</td>
-                  <td className="px-3 py-2 font-medium">{r.item}</td>
-                  <td className="px-3 py-2 text-slate-600">{r.category ?? "—"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{num(r.qty)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium">{money(r.sales)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      </Section>
-
-      {duplicates.length > 0 && (
-        <Section title="Duplicate items detected" right={<a href="/duplicates" className="text-xs text-blue-600 hover:underline">View all →</a>}>
-          <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-900">
-            🔍 <strong>{duplicates.length} groups</strong> of likely-duplicate menu items found.
-            See the Duplicates page for the full list with merge suggestions.
+      <section className="flex-1 px-6 md:px-12 py-10">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-baseline justify-between mb-6">
+            <h2 className="text-lg font-semibold text-slate-800">Locations</h2>
+            <span className="text-xs text-slate-500">
+              {kantinList.filter((k) => k.status === "live").length} live ·
+              {" "}{kantinList.filter((k) => k.status === "coming-soon").length} coming soon
+            </span>
           </div>
-        </Section>
-      )}
-    </>
+
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {kantinList.map((k) => {
+              const isLive = k.status === "live" && k.data
+              const data = k.data
+              const href = isLive ? `/${k.slug}` : `/${k.slug}`
+              return (
+                <Link
+                  key={k.slug}
+                  href={href}
+                  className={clsx(
+                    "block bg-white rounded-xl border shadow-sm p-6 transition-all",
+                    isLive
+                      ? "border-slate-200 hover:border-blue-400 hover:shadow-md"
+                      : "border-slate-200 opacity-80 hover:opacity-100",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-slate-500 font-medium">
+                        {k.city}
+                      </div>
+                      <div className="text-xl font-bold text-slate-900 mt-1">{k.short}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{k.fullAddress}</div>
+                    </div>
+                    {isLive ? (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
+                        Live
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs font-medium">
+                        Coming soon
+                      </span>
+                    )}
+                  </div>
+
+                  {isLive && data ? (
+                    <div className="mt-5 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs text-slate-500">Gross sales</div>
+                          <div className="text-lg font-semibold text-slate-900 tabular-nums">
+                            {money(data.summary.total_gross, { compact: true })}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500">Tickets</div>
+                          <div className="text-lg font-semibold text-slate-900 tabular-nums">
+                            {num(data.summary.total_tickets)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs text-slate-500">Days of sales</div>
+                          <div className="text-sm text-slate-700 tabular-nums">
+                            {num(data.summary.days_with_sales)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500">Last sale</div>
+                          <div className="text-sm text-slate-700">
+                            {shortDate(data.meta.last_sale_date)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="pt-3 mt-3 border-t border-slate-100 text-xs text-blue-600 font-medium">
+                        Open dashboard →
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-5 pt-5 border-t border-slate-100 text-sm text-slate-500">
+                      No POS data synced yet. This location will go live once its system is
+                      connected.
+                    </div>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      <footer className="px-6 md:px-12 py-6 border-t border-slate-200 bg-white">
+        <div className="max-w-6xl mx-auto text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
+          <div>Kantin RMS · IESPL</div>
+          <div>Data freshness depends on each location&apos;s POS sync schedule.</div>
+        </div>
+      </footer>
+    </main>
   )
 }
