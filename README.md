@@ -1,9 +1,15 @@
 # Kantin RMS
 
-A multi-location Reporting & Management System for the IESPL Kantin chain.
+Multi-location Retail Management System for the IESPL Kantin chain.
 
-Landing page lists each location; locations that are live link into a full
-analytics dashboard powered by data exported from the on-site POS.
+- **Landing** at `/` lists every kantin and their live status.
+- **H-8 (live)** has the full POS-derived reporting suite under `/h8/*`.
+- **Chak Shahzad** and **Model Town Multan** are placeholders until their POSes are wired up.
+- **Operations** (GRN, Inventory, Stock-Take) are scaffolded — first sprint of forms next.
+- **Auth** via email + password (NextAuth.js + Postgres + bcrypt).
+- **User management** at `/admin/users` (admin only).
+
+Deployed on Coolify at <https://kantin.iespl.org>.
 
 ## Locations
 
@@ -13,72 +19,100 @@ analytics dashboard powered by data exported from the on-site POS.
 | Chak Shahzad Kantin | Islamabad | Coming soon |
 | Model Town Kantin | Multan | Coming soon |
 
-## Architecture
+## Pages
+
+- `/login` — sign-in form
+- `/` — landing with 3 kantin cards
+- `/h8/` — overview, daily / Z report, items, categories, cashiers, customers, payments, duplicates, catalog
+- `/h8/grn` — Goods Receipt Notes (placeholder, form coming next)
+- `/h8/inventory` — raw-material stock (placeholder)
+- `/h8/stock-take` — physical inventory count session (placeholder)
+- `/admin/users` — user management (admin only)
+
+## Tech stack
+
+- **Next.js 14** App Router + TypeScript + Tailwind
+- **NextAuth.js** with Credentials provider, JWT sessions
+- **Prisma** + **Postgres** (Coolify-managed)
+- **Recharts** for charts
+- **bcryptjs** for password hashing
+- **Docker** standalone build for Coolify
+
+## Data model (Prisma — see `prisma/schema.prisma`)
+
+- **User** — email/password, role (ADMIN / MANAGER / CASHIER / VIEWER), optional kantin scope
+- **Kantin** — slug, name, city, isLive
+- **Vendor** — supplier per kantin
+- **Product** — raw material / packaging / resale / supplies, per kantin
+- **Grn** + **GrnLine** — Goods Receipt Notes
+- **StockMovement** — append-only ledger of every stock change
+- **StockTake** + **StockTakeItem** — physical count sessions
+
+## Deploying to Coolify (one-time)
+
+### 1. In the **Kantin RMS** Coolify project, add a Postgres service
+
+- Name: `kantin-rms-db`
+- Database: `kantin_rms`
+- User: `kantin_rms`
+- Generate a strong password
+- Internal-only, persistent volume
+
+### 2. Add the application
+
+- New Resource → Public Repository → `https://github.com/dev-rizwann/kantin-rms`
+- Build pack: **Dockerfile** (auto-detected; will use the `Dockerfile` at repo root)
+- Domain: `kantin.iespl.org`
+- Port: `3000`
+
+### 3. Set environment variables (Coolify → Resource → Environment)
 
 ```
-H-8 POS PC (Windows)                     Build / Deploy
-┌────────────────────────┐               ┌────────────────────────┐
-│ MutfakPos Derby DB     │               │ Next.js build          │
-│        │               │               │   ↓                    │
-│        ▼               │               │ Static, multi-route    │
-│ Mirror-POSDB.ps1       │               │ site at                │
-│ (VSS, zero-impact)     │               │ kantin.iespl.org       │
-│        │               │               │ (Coolify / Vercel)     │
-│        ▼               │               │ basic-auth gated       │
-│ Local mirror           │               └────────────────────────┘
-│        │               │
-│        ▼               │
-│ DashboardExport.java   │
-│        │               │
-│        ▼               │   git push
-│ data/h8/dashboard.json │ ─────────────►
-└────────────────────────┘
+DATABASE_URL=postgresql://kantin_rms:<password>@<internal-host>:5432/kantin_rms?schema=public
+NEXTAUTH_SECRET=<output of: openssl rand -base64 32>
+NEXTAUTH_URL=https://kantin.iespl.org
+SEED_ADMIN_EMAIL=admin@iespl.org
+SEED_ADMIN_PASSWORD=<a strong password you'll change on first login>
+SEED_ADMIN_NAME=Administrator
 ```
 
-Other locations will follow the same model: their POS PC runs the same mirror
-script and exports to `data/<slug>/dashboard.json`, then the Kantin RMS site
-flips them from "Coming soon" to "Live".
+### 4. First-time deploy
 
-## Pages per kantin (H-8 today)
+After Coolify finishes building once, exec into the container and apply migrations + seed:
 
-- `/` Landing — kantin cards
-- `/h8/` Overview — KPI cards, daily trend, payment mix, top items
-- `/h8/daily` Daily Sales / Z Report — per-day totals with variance check
-- `/h8/items` Per-item sales since the beginning
-- `/h8/categories` Category leaderboard + drill-down
-- `/h8/cashiers` Per-cashier totals, daily activity, payment mix
-- `/h8/customers` Customer-wise sales
-- `/h8/payments` Payment-type totals + daily cross-tab
-- `/h8/duplicates` Fuzzy-matched duplicate menu items
-- `/h8/catalog` Menu listing per category
+```bash
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+(Or set Coolify's post-deploy command to run these automatically.)
+
+### 5. Sign in
+
+Visit <https://kantin.iespl.org/login> and sign in with the admin email/password you set above. **Change the password immediately** via your user menu.
 
 ## Local dev
 
 ```powershell
 cd E:\MutfakPos\dashboard
 npm install
+
+# Spin up Postgres however you like, then:
+Copy-Item .env.example .env.local
+# Edit .env.local with your local connection string
+npx prisma db push
+npx prisma db seed
 npm run dev
 ```
 
-Visit <http://localhost:3000>.
+## Refreshing H-8 sales data
 
-## Refreshing the H-8 data
+The H-8 reports still read `data/h8/dashboard.json` baked at build time. The Windows POS PC has the mirror + export pipeline (`E:\MutfakPos\tools\Export-Dashboard.ps1`). After Phase D, this is replaced by direct Postgres reads.
 
-```powershell
-E:\MutfakPos\tools\Export-Dashboard.ps1
-```
+## Removing from Vercel
 
-This re-runs the Java probe → regenerates `dashboard/data/h8/dashboard.json` →
-commits → pushes to GitHub → Vercel/Coolify auto-deploys (~1 minute).
+The old deployment at `mutfakpos-dashboard.vercel.app` should be retired:
 
-## Auth
-
-Basic-auth middleware reads `DASHBOARD_PASSWORD` from env. Username is anything,
-password is whatever you set in the host (Vercel / Coolify env vars).
-
-## Tech
-
-- Next.js 14 App Router + TypeScript
-- Tailwind CSS
-- Recharts
-- Static rendering — no backend at request time
+1. Go to <https://vercel.com/dev-rizwanns-projects/mutfakpos-dashboard/settings>
+2. **Settings → Git → Disconnect** (to stop auto-deploys on push)
+3. **Settings → General → Delete Project** (when you're satisfied Coolify is live)

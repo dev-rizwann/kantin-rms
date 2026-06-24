@@ -2,15 +2,24 @@ import Link from "next/link"
 import clsx from "clsx"
 import { kantinList } from "@/lib/kantins"
 import { money, num, shortDate } from "@/lib/format"
+import { requireSession } from "@/lib/session"
+import { UserMenu } from "@/components/UserMenu"
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const session = await requireSession()
+
   return (
     <main className="min-h-screen flex flex-col">
-      <header className="px-6 md:px-12 py-8 border-b border-slate-200 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-xs uppercase tracking-widest text-slate-500 font-medium">IESPL</div>
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">Kantin RMS</h1>
-          <p className="text-slate-500 mt-2">Reporting &amp; management across all locations.</p>
+      <header className="px-6 md:px-12 py-6 border-b border-slate-200 bg-white">
+        <div className="max-w-6xl mx-auto flex items-start justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-widest text-slate-500 font-medium">IESPL</div>
+            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">Kantin RMS</h1>
+            <p className="text-slate-500 mt-2 text-sm">
+              Reporting &amp; management across all locations.
+            </p>
+          </div>
+          <UserMenu />
         </div>
       </header>
 
@@ -28,7 +37,7 @@ export default function LandingPage() {
             {kantinList.map((k) => {
               const isLive = k.status === "live" && k.data
               const data = k.data
-              const href = isLive ? `/${k.slug}` : `/${k.slug}`
+              const href = `/${k.slug}`
               return (
                 <Link
                   key={k.slug}
@@ -108,7 +117,7 @@ export default function LandingPage() {
 
       <footer className="px-6 md:px-12 py-6 border-t border-slate-200 bg-white">
         <div className="max-w-6xl mx-auto text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
-          <div>Kantin RMS · IESPL</div>
+          <div>Kantin RMS · IESPL · Signed in as {session.user.email}</div>
           <div>Data freshness depends on each location&apos;s POS sync schedule.</div>
         </div>
       </footer>
