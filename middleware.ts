@@ -15,7 +15,7 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    // Match everything except: NextAuth API, /login, _next assets, favicon, public files
-    "/((?!api/auth|login|_next/static|_next/image|favicon.ico).*)",
+    // Match everything except: NextAuth API, /api/sync (bearer auth), /login, _next assets, favicon, public files
+    "/((?!api/auth|api/sync|login|_next/static|_next/image|favicon.ico).*)",
   ],
 }
