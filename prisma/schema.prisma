@@ -258,3 +258,53 @@ model StockTakeItem {
   @@unique([stockTakeId, productId])
   @@index([stockTakeId])
 }
+
+// =========================================================================
+// POS SYNC — receives raw deltas from canteen PC mirror pushes
+// =========================================================================
+
+/// Stores each batch of rows pushed from a canteen PC.
+/// Raw JSON for now so we never lose data; structured extraction happens later.
+model SyncBatch {
+  id           String   @id @default(cuid())
+  kantinSlug   String
+  receivedAt   DateTime @default(now())
+  table        String   // source table name (e.g. "CHECKOUT", "ITEMSALE")
+  rowCount     Int
+  rows         Json     // array of row objects, each shaped like the source table
+  highestId    Int?     // max id in this batch (used as next watermark)
+  bytes        Int      @default(0)
+
+  @@index([kantinSlug, table, receivedAt])
+  @@index([kantinSlug, receivedAt])
+  @@map("sync_batch")
+}
+
+/// Per-(kantin, table) high-water mark and stats. One row per table per kantin.
+model SyncState {
+  id          String    @id @default(cuid())
+  kantinSlug  String
+  tableName   String
+  lastSeenId  Int?      // for incremental tables (CHECKOUT, ITEMSALE, etc.)
+  lastSyncAt  DateTime?
+  totalBatches Int      @default(0)
+  totalRows   Int       @default(0)
+
+  @@unique([kantinSlug, tableName])
+  @@map("sync_state")
+}
+
+/// Bearer tokens the canteen PCs use to authenticate to /api/sync/[kantin].
+/// One row per kantin. tokenHash is bcrypt of the raw token.
+model SyncToken {
+  id          String    @id @default(cuid())
+  kantinSlug  String    @unique
+  tokenHash   String
+  description String?
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  lastIp      String?
+  isActive    Boolean   @default(true)
+
+  @@map("sync_token")
+}
