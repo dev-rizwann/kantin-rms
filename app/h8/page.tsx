@@ -21,17 +21,16 @@ export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 export default async function OverviewPage() {
-  const [summary, meta, daily, sessions, hourly, paymentTypes, categories, topItems] =
-    await Promise.all([
-      getH8Summary(),
-      getH8Meta(),
-      getH8Daily(),
-      getH8Sessions(),
-      getH8HourlyPattern(),
-      getH8PaymentTypes(),
-      getH8Categories(),
-      getH8TopItems30d(),
-    ])
+  // Sequential (not parallel) — Prisma's standalone-build pool was deadlocking on Promise.all.
+  // Total still ~1-2 sec since each query is 50-300 ms.
+  const summary = await getH8Summary()
+  const meta = await getH8Meta()
+  const daily = await getH8Daily()
+  const sessions = await getH8Sessions()
+  const hourly = await getH8HourlyPattern()
+  const paymentTypes = await getH8PaymentTypes()
+  const categories = await getH8Categories()
+  const topItems = await getH8TopItems30d()
 
   const avgTicket = summary.totalTickets ? summary.totalGross / summary.totalTickets : 0
   const recent = daily.slice(-30)
