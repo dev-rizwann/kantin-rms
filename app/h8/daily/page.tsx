@@ -1,121 +1,126 @@
-"use client"
+import { PageHeader } from "@/components/PageHeader"
+import { KpiStrip, LedgerTable, SectionHead, Badge, type Kpi } from "@/components/ui"
+import { money, num, shortDate, timeOnly } from "@/lib/format"
+import { getH8DailyCashLive } from "@/lib/h8-live"
 
-import { Card, CardBody, CardHeader } from "@/components/Card"
-import { MiniLineChart } from "@/components/Charts"
-import { DataTable } from "@/components/DataTable"
-import { PageHeader, Section } from "@/components/PageHeader"
-import { dashboard } from "@/lib/data"
-import { money, num, shortDate, shortDateTime, timeOnly } from "@/lib/format"
+export const dynamic = "force-dynamic"
 
-export default function DailyPage() {
-  const { daily, sessions, daily_cancels_refunds, daily_payments } = dashboard
+export default async function DailyCashPage() {
+  const d = await getH8DailyCashLive()
+  const k = d.kpis
+  const deltaPct = k.prevGross > 0 ? ((k.todayGross - k.prevGross) / k.prevGross) * 100 : null
 
-  // Roll up cancels/refunds per day for joining
-  const exByDay: Record<string, { cancels: number; cancel_amt: number; refunds: number; refund_amt: number }> = {}
-  for (const r of daily_cancels_refunds) {
-    const d = (exByDay[r.sale_date] ??= { cancels: 0, cancel_amt: 0, refunds: 0, refund_amt: 0 })
-    if (r.kind === "cancel") {
-      d.cancels = r.count_
-      d.cancel_amt = r.amount
-    } else {
-      d.refunds = r.count_
-      d.refund_amt = r.amount
-    }
-  }
-
-  // Roll up payment net per day for variance check
-  const payByDay: Record<string, number> = {}
-  for (const p of daily_payments) {
-    payByDay[p.sale_date] = (payByDay[p.sale_date] ?? 0) + p.net_paid
-  }
-
-  const dailyRich = [...daily]
-    .reverse()
-    .map((d) => ({
-      ...d,
-      ...(exByDay[d.sale_date] ?? { cancels: 0, cancel_amt: 0, refunds: 0, refund_amt: 0 }),
-      payments_net: payByDay[d.sale_date] ?? 0,
-      variance: (payByDay[d.sale_date] ?? 0) - d.gross_total,
-    }))
-
-  // Z report = sessions grouped by date with totals
-  const sessionRich = sessions.map((s) => ({
-    ...s,
-    duration_hours:
-      s.close_time && s.open_time
-        ? (new Date(s.close_time).getTime() - new Date(s.open_time).getTime()) / 36e5
-        : null,
-  }))
+  const kpis: Kpi[] = [
+    {
+      label: "Latest day", value: money(k.todayGross, { compact: true }),
+      sub: deltaPct == null ? `${num(k.todayTickets)} tickets` : `${deltaPct >= 0 ? "▲" : "▼"} ${Math.abs(deltaPct).toFixed(0)}% · ${num(k.todayTickets)} tickets`,
+      tone: deltaPct == null ? "default" : deltaPct >= 0 ? "good" : "bad",
+    },
+    { label: "Cash collected (= deposit)", value: money(k.cashNet, { compact: true }), sub: "all-time net cash" },
+    { label: "Non-cash (bank/card/FP)", value: money(k.nonCashNet, { compact: true }) },
+    { label: "Open sessions", value: num(k.openSessions), tone: k.openSessions > 0 ? "warn" : "default" },
+    { label: "Walk-in / named", value: `${num(k.walkInTickets)} / ${num(k.namedTickets)}`, sub: "tickets" },
+  ]
 
   return (
     <>
-      <PageHeader title="Daily Sales / Z Report" subtitle="Day-by-day totals with variance check against payment receipts" />
+      <PageHeader title="Daily & Cash" subtitle={`Live · through ${shortDate(d.meta.lastSaleDate)} · reconciliation & accountability`} />
+      <KpiStrip items={kpis} />
 
-      <Section title="30-day gross trend">
-        <Card>
-          <CardBody>
-            <MiniLineChart data={[...daily].slice(-30)} xKey="sale_date" yKey="gross_total" height={240} />
-          </CardBody>
-        </Card>
-      </Section>
-
-      <Section title="Daily summary" right={<span className="text-xs text-slate-500">{daily.length} days</span>}>
-        <DataTable
-          rows={dailyRich}
-          initialSort={{ key: "sale_date", dir: "desc" }}
-          columns={[
-            { key: "sale_date", header: "Date", render: (r) => shortDate(r.sale_date) },
-            { key: "tickets", header: "Tickets", numeric: true, render: (r) => num(r.tickets) },
-            { key: "gross_total", header: "Gross", numeric: true, render: (r) => money(r.gross_total) },
-            { key: "payments_net", header: "Payments Net", numeric: true, render: (r) => money(r.payments_net) },
+      <section className="mb-6">
+        <SectionHead title="Daily summary" context="gross vs payments — variance is rounding-adjusted" />
+        <LedgerTable
+          rows={d.daily}
+          cols={[
+            { key: "date", header: "Date", render: (r) => shortDate(r.saleDate) },
+            { key: "tickets", header: "Tickets", numeric: true, muted: true, render: (r) => num(r.tickets) },
+            { key: "gross", header: "Gross", numeric: true, lead: true, render: (r) => money(r.gross) },
+            { key: "pay", header: "Payments", numeric: true, render: (r) => money(r.paymentsNet) },
+            { key: "round", header: "Rounding", numeric: true, muted: true, render: (r) => (r.rounding ? money(r.rounding) : "—") },
             {
-              key: "variance",
-              header: "Variance",
-              numeric: true,
-              render: (r) => (
-                <span className={Math.abs(r.variance) > 1 ? "text-red-600 font-medium" : "text-slate-400"}>
-                  {money(r.variance)}
-                </span>
-              ),
+              key: "var", header: "Variance", numeric: true,
+              render: (r) => {
+                const v = r.variance - r.rounding
+                const cls = Math.abs(v) < 1 ? "text-slate-400" : Math.abs(v) < 50 ? "text-amber-600" : "text-red-600"
+                return <span className={cls}>{Math.abs(v) < 1 ? "—" : money(v)}</span>
+              },
             },
-            { key: "void_tickets", header: "Voids", numeric: true, render: (r) => (r.void_tickets ? num(r.void_tickets) : "—") },
-            { key: "cancels", header: "Cancels", numeric: true, render: (r) => (r.cancels ? `${num(r.cancels)} (${money(r.cancel_amt, { compact: true })})` : "—") },
-            { key: "refunds", header: "Refunds", numeric: true, render: (r) => (r.refunds ? `${num(r.refunds)} (${money(r.refund_amt, { compact: true })})` : "—") },
+            { key: "voids", header: "Voids", numeric: true, render: (r) => (r.voids ? <span className="text-amber-600">{num(r.voids)}</span> : <span className="text-slate-300">—</span>) },
+            { key: "cr", header: "Cancel/Refund", numeric: true, render: (r) => (r.cancels + r.refunds ? <span className="text-red-600">{r.cancels}/{r.refunds}</span> : <span className="text-slate-300">—</span>) },
           ]}
         />
-      </Section>
+      </section>
 
-      <Section title="Z Report — cashier sessions (open & close)" right={<span className="text-xs text-slate-500">{sessions.length} sessions</span>}>
-        <DataTable
-          rows={sessionRich}
-          initialSort={{ key: "open_time", dir: "desc" }}
-          columns={[
-            {
-              key: "status",
-              header: "Status",
-              render: (r) =>
-                r.status === "open" ? (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs">OPEN</span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs">Closed</span>
-                ),
-            },
-            { key: "session_id", header: "Session" },
-            { key: "sale_date", header: "Date", render: (r) => shortDate(r.sale_date) },
-            { key: "open_time", header: "Opened", render: (r) => `${timeOnly(r.open_time)} · ${r.opened_by ?? "—"}` },
-            { key: "close_time", header: "Closed", render: (r) => (r.close_time ? `${timeOnly(r.close_time)} · ${r.closed_by ?? "—"}` : "—") },
-            {
-              key: "duration_hours",
-              header: "Duration",
-              numeric: true,
-              render: (r) => (r.duration_hours ? r.duration_hours.toFixed(1) + "h" : "—"),
-            },
-            { key: "tickets", header: "Tickets", numeric: true, render: (r) => num(r.tickets) },
-            { key: "gross_total", header: "Gross", numeric: true, render: (r) => money(r.gross_total) },
-            { key: "petty_cash", header: "Petty Cash", numeric: true, render: (r) => money(r.petty_cash) },
+      <section className="mb-6">
+        <SectionHead title="Cashier sessions (Z-report)" context={`${d.sessions.length} recent`} />
+        <LedgerTable
+          rows={d.sessions}
+          cols={[
+            { key: "st", header: "Status", render: (r) => <Badge tone={r.status === "open" ? "warn" : "neutral"}>{r.status === "open" ? "OPEN" : "Closed"}</Badge> },
+            { key: "open", header: "Opened", render: (r) => <span>{timeOnly(r.openTime)} <span className="text-slate-400">{shortDate(r.openTime)}</span> · {r.openedBy ?? "—"}</span> },
+            { key: "close", header: "Closed", render: (r) => (r.closeTime ? <span>{timeOnly(r.closeTime)} · {r.closedBy ?? "—"}</span> : <span className="text-amber-600">still open</span>) },
+            { key: "tickets", header: "Tickets", numeric: true, muted: true, render: (r) => num(r.tickets) },
+            { key: "gross", header: "Gross", numeric: true, lead: true, render: (r) => money(r.gross) },
           ]}
         />
-      </Section>
+      </section>
+
+      <section className="mb-6">
+        <SectionHead title="Cashiers" context="accountability — incl. cash handled" />
+        <LedgerTable
+          rows={d.cashiers}
+          cols={[
+            { key: "name", header: "Cashier", render: (r) => <span className="font-medium text-slate-900">{r.cashier}</span> },
+            { key: "tickets", header: "Tickets", numeric: true, muted: true, render: (r) => num(r.tickets) },
+            { key: "gross", header: "Gross", numeric: true, lead: true, render: (r) => money(r.gross) },
+            { key: "avg", header: "Avg", numeric: true, render: (r) => money(r.avgTicket) },
+            { key: "cash", header: "Cash handled", numeric: true, render: (r) => money(r.cashNet) },
+            { key: "days", header: "Days", numeric: true, muted: true, render: (r) => num(r.daysWorked) },
+          ]}
+        />
+      </section>
+
+      <section className="mb-6">
+        <SectionHead title="Payment types" context="all-time" />
+        <LedgerTable
+          rows={d.paymentTypes}
+          cols={[
+            { key: "type", header: "Type", render: (r) => <span className="font-medium text-slate-900">{r.paymentType === " -1" ? "Cash" : r.paymentType}</span> },
+            { key: "n", header: "Count", numeric: true, muted: true, render: (r) => num(r.count) },
+            { key: "tendered", header: "Tendered", numeric: true, render: (r) => money(r.tendered) },
+            { key: "change", header: "Change", numeric: true, muted: true, render: (r) => (r.changeDue ? money(r.changeDue) : "—") },
+            { key: "net", header: "Net", numeric: true, lead: true, render: (r) => money(r.netPaid) },
+          ]}
+        />
+      </section>
+
+      <section>
+        <SectionHead title="Daily payment split" context="should tie out to deposits" />
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table className="w-full border-collapse text-[13px]">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="border-b border-slate-200 px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-slate-500">Date</th>
+                {d.payTypeNames.map((t) => (
+                  <th key={t} className="border-b border-slate-200 px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-slate-500 whitespace-nowrap">{t === " -1" ? "Cash" : t}</th>
+                ))}
+                <th className="border-b border-slate-200 bg-slate-100 px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-slate-600">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {d.payMatrix.map((m) => (
+                <tr key={m.saleDate} className="hover:bg-slate-50">
+                  <td className="px-3 py-1.5 whitespace-nowrap">{shortDate(m.saleDate)}</td>
+                  {d.payTypeNames.map((t) => (
+                    <td key={t} className="px-3 py-1.5 text-right tabular-nums text-slate-700">{m.byType[t] ? money(m.byType[t], { compact: true }) : <span className="text-slate-300">—</span>}</td>
+                  ))}
+                  <td className="bg-slate-50 px-3 py-1.5 text-right font-medium tabular-nums text-slate-900">{money(m.total, { compact: true })}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </>
   )
 }
