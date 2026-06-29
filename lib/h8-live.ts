@@ -271,7 +271,7 @@ export async function getH8DailyCashLive(): Promise<H8DailyCashLive> {
       WHERE p.kantin_slug=${K} AND p.payment_time IS NOT NULL
     ),
     rcpt AS MATERIALIZED (
-      SELECT r.session_id, c.total, c.void
+      SELECT r.session_id, r.customer_id, c.total, c.void
       FROM mp_receipt r JOIN co c ON c.receipt_id = r.id
       WHERE r.kantin_slug=${K}
     ),
@@ -296,8 +296,8 @@ export async function getH8DailyCashLive(): Promise<H8DailyCashLive> {
         'cash_net', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype=' -1'),
         'noncash_net', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype<>' -1'),
         'open_sessions', (SELECT COUNT(*) FROM mp_session WHERE kantin_slug=${K} AND close_time IS NULL),
-        'walkin_tickets', (SELECT COUNT(*) FROM co c JOIN mp_receipt r ON r.id=c.receipt_id AND r.kantin_slug=${K} WHERE NOT c.void AND r.customer_id IS NULL),
-        'named_tickets', (SELECT COUNT(*) FROM co c JOIN mp_receipt r ON r.id=c.receipt_id AND r.kantin_slug=${K} WHERE NOT c.void AND r.customer_id IS NOT NULL)),
+        'walkin_tickets', (SELECT COUNT(*) FROM rcpt WHERE NOT void AND customer_id IS NULL),
+        'named_tickets', (SELECT COUNT(*) FROM rcpt WHERE NOT void AND customer_id IS NOT NULL)),
       'daily', (SELECT COALESCE(json_agg(x ORDER BY x.d DESC),'[]'::json) FROM (
         SELECT co.d,
           COUNT(*) FILTER (WHERE NOT void) AS tickets,
