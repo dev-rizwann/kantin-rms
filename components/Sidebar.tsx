@@ -19,8 +19,10 @@ const reportsNav: { sub: string; label: string; icon: string }[] = [
 ]
 
 const operationsNav: { sub: string; label: string; icon: string }[] = [
-  { sub: "/grn", label: "GRN", icon: "📦" },
   { sub: "/inventory", label: "Inventory", icon: "🏷️" },
+  { sub: "/grn", label: "GRN", icon: "📦" },
+  { sub: "/vendors", label: "Vendors", icon: "🚚" },
+  { sub: "/products", label: "Products", icon: "🥔" },
   { sub: "/stock-take", label: "Stock Take", icon: "🧮" },
 ]
 
