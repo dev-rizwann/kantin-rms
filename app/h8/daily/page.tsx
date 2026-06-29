@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/PageHeader"
 import { KpiStrip, LedgerTable, SectionHead, Badge, type Kpi } from "@/components/ui"
 import { money, num, shortDate, timeOnly } from "@/lib/format"
-import { getH8DailyCashLive } from "@/lib/h8-live"
+import { getH8DailyCashLive, payLabel } from "@/lib/h8-live"
 
 export const dynamic = "force-dynamic"
 
@@ -85,7 +85,7 @@ export default async function DailyCashPage() {
         <LedgerTable
           rows={d.paymentTypes}
           cols={[
-            { key: "type", header: "Type", render: (r) => <span className="font-medium text-slate-900">{r.paymentType === " -1" ? "Cash" : r.paymentType}</span> },
+            { key: "type", header: "Type", render: (r) => <span className="font-medium text-slate-900">{payLabel(r.paymentType)}</span> },
             { key: "n", header: "Count", numeric: true, muted: true, render: (r) => num(r.count) },
             { key: "tendered", header: "Tendered", numeric: true, render: (r) => money(r.tendered) },
             { key: "change", header: "Change", numeric: true, muted: true, render: (r) => (r.changeDue ? money(r.changeDue) : "—") },
@@ -102,7 +102,7 @@ export default async function DailyCashPage() {
               <tr>
                 <th className="border-b border-slate-200 px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-slate-500">Date</th>
                 {d.payTypeNames.map((t) => (
-                  <th key={t} className="border-b border-slate-200 px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-slate-500 whitespace-nowrap">{t === " -1" ? "Cash" : t}</th>
+                  <th key={t} className="border-b border-slate-200 px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-slate-500 whitespace-nowrap">{payLabel(t)}</th>
                 ))}
                 <th className="border-b border-slate-200 bg-slate-100 px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-slate-600">Total</th>
               </tr>

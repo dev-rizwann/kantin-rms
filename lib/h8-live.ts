@@ -10,6 +10,14 @@ import { prisma } from "./prisma"
 const K = "h8"
 const n = (v: any) => (v == null ? 0 : Number(v))
 
+/** MutfakPos internal payment-type codes -> readable labels. */
+export function payLabel(t: string | null | undefined): string {
+  const s = (t ?? "").trim()
+  if (s === "-1") return "Cash"
+  if (s === "-2") return "Credit / on account"
+  return s || "—"
+}
+
 // =========================================================================
 // OVERVIEW
 // =========================================================================
@@ -112,7 +120,7 @@ export async function getH8OverviewLive(): Promise<H8OverviewLive> {
     },
     daily: (p.daily ?? []).map((d: any) => ({ sale_date: d.d, gross_total: n(d.gross_total) })),
     topCategories: (p.top_categories ?? []).map((c: any) => ({ category: c.category, total_sales: n(c.total_sales) })),
-    paymentMix: (p.payment_mix ?? []).map((x: any) => ({ payment_type: x.payment_type, net_paid: n(x.net_paid) })),
+    paymentMix: (p.payment_mix ?? []).map((x: any) => ({ payment_type: payLabel(x.payment_type), net_paid: n(x.net_paid) })),
     hourly: (p.hourly ?? []).map((h: any) => ({ hour_of_day: n(h.hour_of_day), gross: n(h.gross) })),
     openSessions: (p.open_sessions ?? []).map((o: any) => ({ opened_by: o.opened_by ?? null, open_time: o.open_time, tickets: n(o.tickets), gross_total: n(o.gross_total) })),
     topItems30d: (p.top_items_30d ?? []).map((t: any) => ({ item_id: n(t.item_id), item: t.item, category: t.category ?? null, qty: n(t.qty), sales: n(t.sales) })),
@@ -254,6 +262,16 @@ export async function getH8DailyCashLive(): Promise<H8DailyCashLive> {
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
       WHERE p.kantin_slug=${K} AND p.payment_time IS NOT NULL
     ),
+    rcpt AS (
+      SELECT r.session_id, c.total, c.void
+      FROM mp_receipt r JOIN co c ON c.receipt_id = r.id
+      WHERE r.kantin_slug=${K}
+    ),
+    sess_agg AS (
+      SELECT session_id, COUNT(*) FILTER (WHERE NOT void) AS tickets,
+             COALESCE(SUM(total) FILTER (WHERE NOT void),0) AS gross
+      FROM rcpt GROUP BY session_id
+    ),
     cancels AS (SELECT cancel_time::date AS d, COUNT(*) AS nn FROM mp_cancel WHERE kantin_slug=${K} GROUP BY 1),
     refunds AS (SELECT refund_on::date AS d, COUNT(*) AS nn FROM mp_refund WHERE kantin_slug=${K} GROUP BY 1),
     daypay AS (SELECT d, COALESCE(SUM(net),0) AS net FROM pm GROUP BY d),
@@ -286,9 +304,9 @@ export async function getH8DailyCashLive(): Promise<H8DailyCashLive> {
         SELECT se.id, se.start_time, se.close_time, se.petty_cash,
           (s1.fname||' '||s1.sname) AS opened_by,
           CASE WHEN s2.fname IS NULL THEN NULL ELSE s2.fname||' '||s2.sname END AS closed_by,
-          (SELECT COUNT(*) FROM mp_receipt r JOIN co c ON c.receipt_id=r.id WHERE r.session_id=se.id AND r.kantin_slug=${K} AND NOT c.void) AS tickets,
-          (SELECT COALESCE(SUM(c.total),0) FROM mp_receipt r JOIN co c ON c.receipt_id=r.id WHERE r.session_id=se.id AND r.kantin_slug=${K} AND NOT c.void) AS gross
+          COALESCE(sg.tickets,0) AS tickets, COALESCE(sg.gross,0) AS gross
         FROM mp_session se
+        LEFT JOIN sess_agg sg ON sg.session_id = se.id
         LEFT JOIN mp_staff s1 ON s1.id=se.staff_start_id AND s1.kantin_slug=${K}
         LEFT JOIN mp_staff s2 ON s2.id=se.staff_close_id AND s2.kantin_slug=${K}
         WHERE se.kantin_slug=${K} ORDER BY se.start_time DESC LIMIT 30) s),
