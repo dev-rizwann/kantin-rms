@@ -100,7 +100,7 @@ export async function getH8OverviewLive(): Promise<H8OverviewLive> {
           WHERE pm.kantin_slug=${K}
           GROUP BY pt.title HAVING COALESCE(SUM(pm.paid - pm.balance),0) > 0
           ORDER BY 2 DESC LIMIT 6) p),
-      'hourly', (SELECT COALESCE(json_agg(h ORDER BY h.hr),'[]'::json) FROM (
+      'hourly', (SELECT COALESCE(json_agg(h ORDER BY h.hour_of_day),'[]'::json) FROM (
           SELECT hr AS hour_of_day, COALESCE(SUM(price),0) AS gross
           FROM si WHERE NOT canceled GROUP BY hr ORDER BY hr) h),
       'open_sessions', (SELECT COALESCE(json_agg(os),'[]'::json) FROM (
