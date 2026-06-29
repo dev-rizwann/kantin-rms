@@ -41,7 +41,7 @@ export function MiniLineChart({
           formatter={(v: any) => (typeof v === "number" ? v.toLocaleString() : v)}
           contentStyle={{ fontSize: 12 }}
         />
-        <Line type="monotone" dataKey={yKey} stroke={color} strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey={yKey} stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
       </LineChart>
     </ResponsiveContainer>
   )
@@ -70,7 +70,7 @@ export function SimpleBarChart({
           formatter={(v: any) => (typeof v === "number" ? v.toLocaleString() : v)}
           contentStyle={{ fontSize: 12 }}
         />
-        <Bar dataKey={yKey} fill={color} radius={[3, 3, 0, 0]} />
+        <Bar dataKey={yKey} fill={color} radius={[3, 3, 0, 0]} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -90,7 +90,7 @@ export function DonutChart({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
-        <Pie data={data} dataKey={valueKey} nameKey={nameKey} innerRadius={50} outerRadius={80}>
+        <Pie data={data} dataKey={valueKey} nameKey={nameKey} innerRadius={50} outerRadius={80} isAnimationActive={false}>
           {data.map((_, i) => (
             <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
           ))}
