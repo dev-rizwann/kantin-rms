@@ -236,3 +236,20 @@ SELECT DISTINCT ON (kantin_slug, id)
   id, title, status, kantin_slug
 FROM expanded
 ORDER BY kantin_slug, id, received_at DESC;
+
+-- =========================================================================
+-- v_stock_on_hand — current stock = SUM of all ledger movements.
+-- The ONLY source of truth for on-hand qty (Phase 0). Plain VIEW; promote to
+-- MATERIALIZED only if read latency demands. All movement.qty is already in the
+-- product's stock UoM, so this is a trivial SUM with no per-row conversion.
+-- storage_location_id NULL collapses to a single bucket per (kantin, product).
+-- =========================================================================
+CREATE OR REPLACE VIEW v_stock_on_hand AS
+SELECT
+  "kantinSlug"        AS kantin_slug,
+  "productId"         AS product_id,
+  "storageLocationId" AS storage_location_id,
+  COALESCE(SUM("qty"), 0) AS qty_on_hand,
+  MAX("occurredAt")       AS last_movement_at
+FROM "StockMovement"
+GROUP BY "kantinSlug", "productId", "storageLocationId";
