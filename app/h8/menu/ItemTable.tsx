@@ -40,7 +40,8 @@ export function ItemTable({ items }: { items: H8MenuItem[] }) {
   }, [items, q, cat, filter, sort])
 
   const maxSales = Math.max(1, ...items.map((i) => i.sales))
-  const input = "px-3 py-2 border border-slate-300 rounded-md text-[13px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+  const input =
+    "rounded-lg border border-stone-200 bg-white px-3 py-2 text-[13px] text-stone-800 placeholder:text-stone-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
 
   return (
     <div>
@@ -50,17 +51,26 @@ export function ItemTable({ items }: { items: H8MenuItem[] }) {
           <option value="">All categories</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <div className="flex overflow-hidden rounded-md border border-slate-300 text-[12px]">
+        <div className="flex overflow-hidden rounded-lg border border-stone-200 bg-white text-[12px]">
           {([["all", "All"], ["active", "Active"], ["dead", "Dead stock"], ["cancels", "Has cancels"]] as [Filter, string][]).map(([f, l]) => (
-            <button key={f} onClick={() => setFilter(f)} className={clsx("px-2.5 py-2", filter === f ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50")}>{l}</button>
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={clsx(
+                "px-2.5 py-2 transition-colors",
+                filter === f ? "bg-emerald-700 font-medium text-white" : "text-stone-500 hover:bg-stone-50 hover:text-stone-800",
+              )}
+            >
+              {l}
+            </button>
           ))}
         </div>
-        <span className="ml-auto text-[11px] tabular-nums text-slate-500">{rows.length} shown</span>
+        <span className="ml-auto text-[11px] tabular-nums text-stone-400">{rows.length} shown</span>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(28,25,23,0.04)]">
         <table className="w-full border-collapse text-[13px]">
-          <thead className="bg-slate-50">
+          <thead>
             <tr>
               <Th onClick={() => setSort("item")} active={sort === "item"}>Item</Th>
               <Th>Category</Th>
@@ -72,21 +82,21 @@ export function ItemTable({ items }: { items: H8MenuItem[] }) {
               <Th>Status</Th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-stone-100">
             {rows.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-10 text-center text-sm text-slate-500">No items match</td></tr>
+              <tr><td colSpan={8} className="px-3 py-10 text-center text-sm text-stone-500">No items match</td></tr>
             ) : rows.map((i) => (
-              <tr key={i.itemId} className="hover:bg-slate-50">
-                <td className="px-3 py-1.5"><span className="font-medium text-slate-900">{i.item}</span></td>
-                <td className="px-3 py-1.5 text-slate-500">{i.category ?? "—"}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums text-slate-700">{money(i.price)}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums text-slate-700">{i.qty ? num(i.qty) : <span className="text-slate-300">0</span>}</td>
-                <td className="relative px-3 py-1.5 text-right font-medium tabular-nums text-slate-900">
-                  {i.sales > 0 && <span className="absolute inset-y-1 left-1 rounded-sm bg-blue-100" style={{ width: `${Math.max(2, (i.sales / maxSales) * 100)}%` }} />}
+              <tr key={i.itemId} className="transition-colors hover:bg-emerald-50/40">
+                <td className="px-3 py-1.5"><span className="font-medium text-stone-900">{i.item}</span></td>
+                <td className="px-3 py-1.5 text-stone-400">{i.category ?? "—"}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-stone-600">{money(i.price)}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-stone-600">{i.qty ? num(i.qty) : <span className="text-stone-300">0</span>}</td>
+                <td className="relative px-3 py-1.5 text-right font-medium tabular-nums text-stone-900">
+                  {i.sales > 0 && <span className="absolute inset-y-[5px] left-1 rounded-[3px] bg-emerald-100/80" style={{ width: `${Math.max(2, (i.sales / maxSales) * 100)}%` }} />}
                   <span className="relative">{i.sales ? money(i.sales) : "—"}</span>
                 </td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{i.cancels ? <span className="text-red-600">{num(i.cancels)}</span> : <span className="text-slate-300">—</span>}</td>
-                <td className="px-3 py-1.5 text-slate-500">{i.lastSold ? shortDate(i.lastSold) : <span className="text-amber-600">never</span>}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{i.cancels ? <span className="font-medium text-red-600">{num(i.cancels)}</span> : <span className="text-stone-300">—</span>}</td>
+                <td className="px-3 py-1.5 text-stone-500">{i.lastSold ? shortDate(i.lastSold) : <span className="font-medium text-amber-600">never</span>}</td>
                 <td className="px-3 py-1.5"><Badge tone={i.status === "Active" ? "ok" : "neutral"}>{i.status}</Badge></td>
               </tr>
             ))}
@@ -94,22 +104,22 @@ export function ItemTable({ items }: { items: H8MenuItem[] }) {
         </table>
       </div>
 
-      <button onClick={() => setShowCatalog((s) => !s)} className="mt-3 text-[12px] text-blue-600 hover:underline">
+      <button onClick={() => setShowCatalog((s) => !s)} className="mt-3 text-[12px] font-medium text-emerald-700 hover:underline">
         {showCatalog ? "Hide" : "Show"} catalog detail (price / tax / on-sale)
       </button>
       {showCatalog && (
-        <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="mt-2 overflow-x-auto rounded-xl border border-stone-200 bg-white">
           <table className="w-full border-collapse text-[13px]">
-            <thead className="bg-slate-50">
+            <thead>
               <tr><Th>Item</Th><Th>Category</Th><Th numeric>Price</Th><Th numeric>Tax %</Th><Th>On sale</Th><Th>Status</Th></tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-stone-100">
               {[...items].sort((a, b) => a.item.localeCompare(b.item)).map((i) => (
-                <tr key={i.itemId} className="hover:bg-slate-50">
-                  <td className="px-3 py-1.5 font-medium text-slate-900">{i.item}</td>
-                  <td className="px-3 py-1.5 text-slate-500">{i.category ?? "—"}</td>
+                <tr key={i.itemId} className="hover:bg-emerald-50/40">
+                  <td className="px-3 py-1.5 font-medium text-stone-900">{i.item}</td>
+                  <td className="px-3 py-1.5 text-stone-400">{i.category ?? "—"}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{money(i.price)}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums text-slate-500">{i.tax ? `${i.tax}%` : "—"}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-stone-500">{i.tax ? `${i.tax}%` : "—"}</td>
                   <td className="px-3 py-1.5">{i.onSale}</td>
                   <td className="px-3 py-1.5"><Badge tone={i.status === "Active" ? "ok" : "neutral"}>{i.status}</Badge></td>
                 </tr>
@@ -127,10 +137,11 @@ function Th({ children, numeric, onClick, active }: { children: React.ReactNode;
     <th
       onClick={onClick}
       className={clsx(
-        "border-b border-slate-200 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-slate-500 whitespace-nowrap",
+        "border-b border-stone-200 bg-stone-50/80 px-3 py-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] whitespace-nowrap",
         numeric ? "text-right" : "text-left",
-        onClick && "cursor-pointer select-none hover:text-slate-700",
-        active && "text-blue-600",
+        onClick && "cursor-pointer select-none",
+        active ? "text-emerald-700" : "text-stone-400",
+        onClick && !active && "hover:text-stone-600",
       )}
     >
       {children}{active && " ▼"}

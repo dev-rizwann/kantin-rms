@@ -25,25 +25,25 @@ export default async function InventoryPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="bg-white border border-dashed border-slate-300 rounded-lg p-10 text-center">
+        <div className="bg-white border border-dashed border-stone-300 rounded-lg p-10 text-center">
           <div className="text-4xl mb-3">🏷️</div>
-          <h2 className="text-lg font-semibold text-slate-800">No products yet</h2>
-          <p className="text-slate-500 mt-2 max-w-md mx-auto">
+          <h2 className="text-lg font-semibold text-stone-800">No products yet</h2>
+          <p className="text-stone-500 mt-2 max-w-md mx-auto">
             Add your raw materials (potato, oil, cheese, buns…), then record a GRN to bring stock in.
           </p>
           <div className="mt-4 flex gap-3 justify-center">
-            <Link href="/h8/products/new" className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">+ Add product</Link>
-            <Link href="/h8/grn/new" className="px-4 py-2 border border-slate-300 text-sm font-medium rounded-md hover:bg-slate-50">Record GRN</Link>
+            <Link href="/h8/products/new" className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700">+ Add product</Link>
+            <Link href="/h8/grn/new" className="px-4 py-2 border border-stone-300 text-sm font-medium rounded-md hover:bg-stone-50">Record GRN</Link>
           </div>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-            <div className="text-sm font-semibold text-slate-800">On-hand stock</div>
-            <Link href="/h8/products/new" className="text-xs text-blue-600 hover:underline">+ Add product</Link>
+        <div className="bg-white border border-stone-200 rounded-lg shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-stone-100 flex items-center justify-between">
+            <div className="text-sm font-semibold text-stone-800">On-hand stock</div>
+            <Link href="/h8/products/new" className="text-xs text-emerald-600 hover:underline">+ Add product</Link>
           </div>
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+            <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-600">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Product</th>
                 <th className="px-3 py-2 text-left font-medium">Kind</th>
@@ -55,17 +55,17 @@ export default async function InventoryPage() {
                 <th className="px-3 py-2 text-left font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-stone-100">
               {rows.map((r) => {
                 const isLow = r.minStock > 0 && r.onHand <= r.minStock
                 const isNeg = r.onHand < 0
                 return (
-                  <tr key={r.productId} className="hover:bg-slate-50">
+                  <tr key={r.productId} className="hover:bg-stone-50">
                     <td className="px-3 py-2 font-medium">{r.name}</td>
-                    <td className="px-3 py-2 text-slate-500 text-xs">{r.kind}</td>
+                    <td className="px-3 py-2 text-stone-500 text-xs">{r.kind}</td>
                     <td className={`px-3 py-2 text-right tabular-nums font-medium ${isNeg ? "text-red-600" : ""}`}>{qtyFmt(r.onHand)}</td>
-                    <td className="px-3 py-2 text-slate-500">{r.stockUomCode ?? "—"}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-slate-500">{r.minStock ? qtyFmt(r.minStock) : "—"}</td>
+                    <td className="px-3 py-2 text-stone-500">{r.stockUomCode ?? "—"}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-stone-500">{r.minStock ? qtyFmt(r.minStock) : "—"}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.avgCost ? pkr(r.avgCost, 2) : "—"}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.avgCost ? pkr(r.onHand * r.avgCost) : "—"}</td>
                     <td className="px-3 py-2">
@@ -84,9 +84,9 @@ export default async function InventoryPage() {
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: "ok" | "warn" }) {
   return (
-    <div className={`bg-white border rounded-lg p-4 shadow-sm ${tone === "warn" ? "border-amber-200" : "border-slate-200"}`}>
-      <div className="text-xs uppercase tracking-wide text-slate-500 font-medium">{label}</div>
-      <div className="text-2xl font-bold text-slate-900 mt-1">{value}</div>
+    <div className={`bg-white border rounded-lg p-4 shadow-sm ${tone === "warn" ? "border-amber-200" : "border-stone-200"}`}>
+      <div className="text-xs uppercase tracking-wide text-stone-500 font-medium">{label}</div>
+      <div className="text-2xl font-bold text-stone-900 mt-1">{value}</div>
     </div>
   )
 }

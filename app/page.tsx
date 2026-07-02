@@ -13,23 +13,26 @@ export default async function LandingPage() {
   const h8 = await getH8LandingSummary()
 
   return (
-    <main className="min-h-screen flex flex-col">
-      <header className="px-6 md:px-12 py-6 border-b border-slate-200 bg-white">
-        <div className="max-w-6xl mx-auto flex items-start justify-between gap-4">
-          <div>
-            <div className="text-xs uppercase tracking-widest text-slate-500 font-medium">IESPL</div>
-            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">Kantin RMS</h1>
-            <p className="text-slate-500 mt-2 text-sm">Reporting &amp; management across all locations.</p>
+    <main className="flex min-h-screen flex-col">
+      <header className="border-b border-stone-200 bg-white px-6 py-6 md:px-12">
+        <div className="mx-auto flex max-w-6xl items-start justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-600 font-display text-xl font-bold text-white">K</div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-700">IESPL</div>
+              <h1 className="font-display text-2xl font-semibold tracking-tight text-stone-900 md:text-3xl">Kantin RMS</h1>
+              <p className="mt-0.5 text-sm text-stone-500">Reporting &amp; management across all locations.</p>
+            </div>
           </div>
           <UserMenu />
         </div>
       </header>
 
-      <section className="flex-1 px-6 md:px-12 py-10">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-baseline justify-between mb-6">
-            <h2 className="text-lg font-semibold text-slate-800">Locations</h2>
-            <span className="text-xs text-slate-500">
+      <section className="flex-1 px-6 py-10 md:px-12">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-6 flex items-baseline justify-between">
+            <h2 className="font-display text-lg font-semibold tracking-tight text-stone-800">Locations</h2>
+            <span className="text-xs text-stone-500">
               {kantinList.filter((k) => k.status === "live").length} live · {kantinList.filter((k) => k.status === "coming-soon").length} coming soon
             </span>
           </div>
@@ -43,20 +46,23 @@ export default async function LandingPage() {
                   key={k.slug}
                   href={`/${k.slug}`}
                   className={clsx(
-                    "block bg-white rounded-xl border shadow-sm p-6 transition-all",
-                    isLive ? "border-slate-200 hover:border-blue-400 hover:shadow-md" : "border-slate-200 opacity-80 hover:opacity-100",
+                    "block rounded-2xl border bg-white p-6 shadow-[0_1px_2px_rgba(28,25,23,0.04)] transition-all",
+                    isLive ? "border-stone-200 hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md" : "border-stone-200 opacity-75 hover:opacity-100",
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-slate-500 font-medium">{k.city}</div>
-                      <div className="text-xl font-bold text-slate-900 mt-1">{k.short}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{k.fullAddress}</div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-stone-400">{k.city}</div>
+                      <div className="mt-1 font-display text-xl font-semibold tracking-tight text-stone-900">{k.short}</div>
+                      <div className="mt-0.5 text-xs text-stone-500">{k.fullAddress}</div>
                     </div>
                     {isLive ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Live</span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/15">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        Live
+                      </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs font-medium">Coming soon</span>
+                      <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-500">Coming soon</span>
                     )}
                   </div>
 
@@ -64,28 +70,28 @@ export default async function LandingPage() {
                     <div className="mt-5 space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <div className="text-xs text-slate-500">Gross sales</div>
-                          <div className="text-lg font-semibold text-slate-900 tabular-nums">{money(data.totalGross, { compact: true })}</div>
+                          <div className="text-xs text-stone-400">Gross sales</div>
+                          <div className="text-lg font-semibold tabular-nums tracking-tight text-stone-900">{money(data.totalGross, { compact: true })}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-slate-500">Tickets</div>
-                          <div className="text-lg font-semibold text-slate-900 tabular-nums">{num(data.totalTickets)}</div>
+                          <div className="text-xs text-stone-400">Tickets</div>
+                          <div className="text-lg font-semibold tabular-nums tracking-tight text-stone-900">{num(data.totalTickets)}</div>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <div className="text-xs text-slate-500">Days of sales</div>
-                          <div className="text-sm text-slate-700 tabular-nums">{num(data.daysWithSales)}</div>
+                          <div className="text-xs text-stone-400">Days of sales</div>
+                          <div className="text-sm tabular-nums text-stone-600">{num(data.daysWithSales)}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-slate-500">Last sale</div>
-                          <div className="text-sm text-slate-700">{shortDate(data.lastSaleDate)}</div>
+                          <div className="text-xs text-stone-400">Last sale</div>
+                          <div className="text-sm text-stone-600">{shortDate(data.lastSaleDate)}</div>
                         </div>
                       </div>
-                      <div className="pt-3 mt-3 border-t border-slate-100 text-xs text-blue-600 font-medium">Open dashboard →</div>
+                      <div className="mt-3 border-t border-stone-100 pt-3 text-xs font-medium text-emerald-700">Open dashboard →</div>
                     </div>
                   ) : (
-                    <div className="mt-5 pt-5 border-t border-slate-100 text-sm text-slate-500">
+                    <div className="mt-5 border-t border-stone-100 pt-5 text-sm text-stone-500">
                       No POS data synced yet. This location will go live once its system is connected.
                     </div>
                   )}
@@ -96,8 +102,8 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <footer className="px-6 md:px-12 py-6 border-t border-slate-200 bg-white">
-        <div className="max-w-6xl mx-auto text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
+      <footer className="border-t border-stone-200 bg-white px-6 py-6 md:px-12">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 text-xs text-stone-500">
           <div>Kantin RMS · IESPL · Signed in as {session.user.email}</div>
           <div>Data freshness depends on each location&apos;s POS sync schedule.</div>
         </div>

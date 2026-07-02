@@ -38,12 +38,15 @@ export default async function OverviewPage() {
 
   return (
     <>
-      <PageHeader title="Overview" subtitle={`Live · through ${shortDate(meta.lastSaleDate)}`} />
+      <PageHeader title="Overview" chips={["Live", `through ${shortDate(meta.lastSaleDate)}`]} />
 
       {d.openSessions.length > 0 && (
-        <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-          {d.openSessions.length} cashier {d.openSessions.length === 1 ? "session" : "sessions"} still open
-          {d.openSessions[0] && <> — <strong>{d.openSessions[0].opened_by}</strong>, {num(d.openSessions[0].tickets)} tickets, {money(d.openSessions[0].gross_total, { compact: true })} since {shortDate(d.openSessions[0].open_time)}</>}
+        <div className="mb-5 flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-900">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+          <span>
+            {d.openSessions.length} cashier {d.openSessions.length === 1 ? "session" : "sessions"} still open
+            {d.openSessions[0] && <> — <strong className="font-semibold">{d.openSessions[0].opened_by}</strong>, {num(d.openSessions[0].tickets)} tickets, {money(d.openSessions[0].gross_total, { compact: true })} since {shortDate(d.openSessions[0].open_time)}</>}
+          </span>
         </div>
       )}
 
@@ -51,7 +54,7 @@ export default async function OverviewPage() {
 
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Daily gross — last 30 selling days" />
+          <CardHeader title="Daily gross" sub="last 30 selling days" />
           <CardBody><MiniLineChart data={d.daily} xKey="sale_date" yKey="gross_total" /></CardBody>
         </Card>
         <Card>
@@ -63,11 +66,11 @@ export default async function OverviewPage() {
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader title="Top categories" sub="all-time sales" />
-          <CardBody><SimpleBarChart data={d.topCategories} xKey="category" yKey="total_sales" color="#2563eb" /></CardBody>
+          <CardBody><SimpleBarChart data={d.topCategories} xKey="category" yKey="total_sales" /></CardBody>
         </Card>
         <Card>
           <CardHeader title="Sales by hour" sub="peak-band signal" />
-          <CardBody><SimpleBarChart data={d.hourly} xKey="hour_of_day" yKey="gross" color="#2563eb" /></CardBody>
+          <CardBody><SimpleBarChart data={d.hourly} xKey="hour_of_day" yKey="gross" /></CardBody>
         </Card>
       </div>
 
@@ -78,8 +81,8 @@ export default async function OverviewPage() {
           rank
           empty="No sales in the last 30 days"
           cols={[
-            { key: "item", header: "Item", render: (r) => <span className="font-medium text-slate-900">{r.item}</span> },
-            { key: "cat", header: "Category", render: (r) => <span className="text-slate-500">{r.category ?? "—"}</span> },
+            { key: "item", header: "Item", render: (r) => <span className="font-medium text-stone-900">{r.item}</span> },
+            { key: "cat", header: "Category", render: (r) => <span className="text-stone-400">{r.category ?? "—"}</span> },
             { key: "qty", header: "Qty", numeric: true, render: (r) => num(r.qty) },
             { key: "sales", header: "Sales", numeric: true, lead: true, render: (r) => money(r.sales), bar: (r) => r.sales / maxItemSales },
           ]}

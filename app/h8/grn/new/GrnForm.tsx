@@ -79,33 +79,33 @@ export function GrnForm({ products, vendors, uoms }: { products: Product[]; vend
     router.refresh()
   }
 
-  const input = "px-3 py-2.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+  const input = "px-3 py-2.5 border border-stone-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
 
   return (
     <form onSubmit={submit} className="max-w-4xl space-y-4 pb-24">
       {/* Header */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-5 grid md:grid-cols-2 gap-4">
+      <div className="bg-white border border-stone-200 rounded-lg shadow-sm p-5 grid md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Vendor</label>
+          <label className="block text-sm font-medium text-stone-700 mb-1">Vendor</label>
           <select className={input + " w-full"} value={vendorId} onChange={(e) => setVendorId(e.target.value)} disabled={isInformal}>
             <option value="">— select vendor —</option>
             {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
-          <label className="flex items-center gap-2 text-xs text-slate-600 mt-2">
+          <label className="flex items-center gap-2 text-xs text-stone-600 mt-2">
             <input type="checkbox" checked={isInformal} onChange={(e) => { setIsInformal(e.target.checked); if (e.target.checked) setVendorId("") }} />
             Cash-market / informal (no formal vendor or invoice)
           </label>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Received date</label>
+            <label className="block text-sm font-medium text-stone-700 mb-1">Received date</label>
             <input type="date" max={today} className={input + " w-full"} value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Invoice ref</label>
+            <label className="block text-sm font-medium text-stone-700 mb-1">Invoice ref</label>
             <input className={input + " w-full"} value={invoiceRef} onChange={(e) => setInvoiceRef(e.target.value)} placeholder="optional" disabled={isInformal} />
           </div>
-          <label className="col-span-2 flex items-center gap-2 text-xs text-slate-600">
+          <label className="col-span-2 flex items-center gap-2 text-xs text-stone-600">
             <input type="checkbox" checked={hasGst} onChange={(e) => setHasGst(e.target.checked)} disabled={isInformal} />
             Invoice has GST (show per-line tax)
           </label>
@@ -113,11 +113,11 @@ export function GrnForm({ products, vendors, uoms }: { products: Product[]; vend
       </div>
 
       {/* Lines */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800">Items received</div>
+      <div className="bg-white border border-stone-200 rounded-lg shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-stone-100 text-sm font-semibold text-stone-800">Items received</div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+            <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-600">
               <tr>
                 <th className="px-2 py-2 text-left font-medium min-w-[180px]">Product</th>
                 <th className="px-2 py-2 text-left font-medium">Unit</th>
@@ -129,7 +129,7 @@ export function GrnForm({ products, vendors, uoms }: { products: Product[]; vend
                 <th className="px-2 py-2"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-stone-100">
               {lines.map((l, i) => {
                 const q = parseFloat(l.receivedQty) || 0
                 const c = parseFloat(l.unitCost) || 0
@@ -178,22 +178,22 @@ export function GrnForm({ products, vendors, uoms }: { products: Product[]; vend
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-3 border-t border-slate-100">
-          <button type="button" onClick={() => setLines((ls) => [...ls, blankLine()])} className="text-sm text-blue-600 hover:underline">+ Add line</button>
+        <div className="px-4 py-3 border-t border-stone-100">
+          <button type="button" onClick={() => setLines((ls) => [...ls, blankLine()])} className="text-sm text-emerald-600 hover:underline">+ Add line</button>
         </div>
       </div>
 
       {error && <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">{error}</div>}
 
       {/* Sticky post bar */}
-      <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-between shadow-lg">
+      <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-stone-200 px-6 py-3 flex items-center justify-between shadow-lg">
         <div className="text-sm">
-          <span className="text-slate-500">Grand total:</span>{" "}
+          <span className="text-stone-500">Grand total:</span>{" "}
           <span className="font-semibold tabular-nums">Rs {grandTotal.toLocaleString("en-PK")}</span>
           {missingCount > 0 && <span className="ml-3 text-amber-600">{missingCount} line(s) need a received qty</span>}
         </div>
         <div className="flex gap-3">
-          <button type="button" onClick={() => router.back()} className="px-4 py-2.5 border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>
+          <button type="button" onClick={() => router.back()} className="px-4 py-2.5 border border-stone-300 rounded-md hover:bg-stone-50">Cancel</button>
           <button type="submit" disabled={busy || missingCount > 0} className="px-5 py-2.5 bg-emerald-600 text-white font-medium rounded-md hover:bg-emerald-700 disabled:bg-emerald-300">
             {busy ? "Posting…" : "Post GRN"}
           </button>

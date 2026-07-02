@@ -9,7 +9,16 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
+        display: ["var(--font-space)", "var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
+      colors: {
+        // "forest ink" — sidebar surface family
+        ink: {
+          DEFAULT: "#111a13",
+          soft: "#182219",
+          line: "#243126",
+        },
       },
     },
   },

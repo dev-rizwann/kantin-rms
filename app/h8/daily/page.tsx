@@ -25,15 +25,18 @@ export default async function DailyCashPage() {
 
   return (
     <>
-      <PageHeader title="Daily & Cash" subtitle={`Live · through ${shortDate(d.meta.lastSaleDate)} · reconciliation & accountability`} />
+      <PageHeader
+        title="Daily & Cash"
+        chips={["Live", `through ${shortDate(d.meta.lastSaleDate)}`, "reconciliation & accountability"]}
+      />
       <KpiStrip items={kpis} />
 
       <section className="mb-6">
-        <SectionHead title="Daily summary" context="gross vs payments — variance is rounding-adjusted" />
+        <SectionHead title="Daily summary" context="click a date for the full day · variance is rounding-adjusted" />
         <LedgerTable
           rows={d.daily}
           cols={[
-            { key: "date", header: "Date", render: (r) => <Link href={`/h8/daily/${r.saleDate}`} className="font-medium text-blue-600 hover:underline">{shortDate(r.saleDate)}</Link> },
+            { key: "date", header: "Date", render: (r) => <Link href={`/h8/daily/${r.saleDate}`} className="font-medium text-emerald-700 hover:underline">{shortDate(r.saleDate)}</Link> },
             { key: "tickets", header: "Tickets", numeric: true, muted: true, render: (r) => num(r.tickets) },
             { key: "gross", header: "Gross", numeric: true, lead: true, render: (r) => money(r.gross) },
             { key: "pay", header: "Payments", numeric: true, render: (r) => money(r.paymentsNet) },
@@ -42,12 +45,12 @@ export default async function DailyCashPage() {
               key: "var", header: "Variance", numeric: true,
               render: (r) => {
                 const v = r.variance - r.rounding
-                const cls = Math.abs(v) < 1 ? "text-slate-400" : Math.abs(v) < 50 ? "text-amber-600" : "text-red-600"
+                const cls = Math.abs(v) < 1 ? "text-stone-300" : Math.abs(v) < 50 ? "font-medium text-amber-600" : "font-medium text-red-600"
                 return <span className={cls}>{Math.abs(v) < 1 ? "—" : money(v)}</span>
               },
             },
-            { key: "voids", header: "Voids", numeric: true, render: (r) => (r.voids ? <span className="text-amber-600">{num(r.voids)}</span> : <span className="text-slate-300">—</span>) },
-            { key: "cr", header: "Cancel/Refund", numeric: true, render: (r) => (r.cancels + r.refunds ? <span className="text-red-600">{r.cancels}/{r.refunds}</span> : <span className="text-slate-300">—</span>) },
+            { key: "voids", header: "Voids", numeric: true, render: (r) => (r.voids ? <span className="font-medium text-amber-600">{num(r.voids)}</span> : <span className="text-stone-300">—</span>) },
+            { key: "cr", header: "Cancel/Refund", numeric: true, render: (r) => (r.cancels + r.refunds ? <span className="font-medium text-red-600">{r.cancels}/{r.refunds}</span> : <span className="text-stone-300">—</span>) },
           ]}
         />
       </section>
@@ -58,8 +61,8 @@ export default async function DailyCashPage() {
           rows={d.sessions}
           cols={[
             { key: "st", header: "Status", render: (r) => <Badge tone={r.status === "open" ? "warn" : "neutral"}>{r.status === "open" ? "OPEN" : "Closed"}</Badge> },
-            { key: "open", header: "Opened", render: (r) => <span>{timeOnly(r.openTime)} <span className="text-slate-400">{shortDate(r.openTime)}</span> · {r.openedBy ?? "—"}</span> },
-            { key: "close", header: "Closed", render: (r) => (r.closeTime ? <span>{timeOnly(r.closeTime)} · {r.closedBy ?? "—"}</span> : <span className="text-amber-600">still open</span>) },
+            { key: "open", header: "Opened", render: (r) => <span>{timeOnly(r.openTime)} <span className="text-stone-400">{shortDate(r.openTime)}</span> · {r.openedBy ?? "—"}</span> },
+            { key: "close", header: "Closed", render: (r) => (r.closeTime ? <span>{timeOnly(r.closeTime)} · {r.closedBy ?? "—"}</span> : <span className="font-medium text-amber-600">still open</span>) },
             { key: "tickets", header: "Tickets", numeric: true, muted: true, render: (r) => num(r.tickets) },
             { key: "gross", header: "Gross", numeric: true, lead: true, render: (r) => money(r.gross) },
           ]}
@@ -71,7 +74,7 @@ export default async function DailyCashPage() {
         <LedgerTable
           rows={d.cashiers}
           cols={[
-            { key: "name", header: "Cashier", render: (r) => <span className="font-medium text-slate-900">{r.cashier}</span> },
+            { key: "name", header: "Cashier", render: (r) => <span className="font-medium text-stone-900">{r.cashier}</span> },
             { key: "tickets", header: "Tickets", numeric: true, muted: true, render: (r) => num(r.tickets) },
             { key: "gross", header: "Gross", numeric: true, lead: true, render: (r) => money(r.gross) },
             { key: "avg", header: "Avg", numeric: true, render: (r) => money(r.avgTicket) },
@@ -86,7 +89,7 @@ export default async function DailyCashPage() {
         <LedgerTable
           rows={d.paymentTypes}
           cols={[
-            { key: "type", header: "Type", render: (r) => <span className="font-medium text-slate-900">{payLabel(r.paymentType)}</span> },
+            { key: "type", header: "Type", render: (r) => <span className="font-medium text-stone-900">{payLabel(r.paymentType)}</span> },
             { key: "n", header: "Count", numeric: true, muted: true, render: (r) => num(r.count) },
             { key: "tendered", header: "Tendered", numeric: true, render: (r) => money(r.tendered) },
             { key: "change", header: "Change", numeric: true, muted: true, render: (r) => (r.changeDue ? money(r.changeDue) : "—") },
@@ -97,25 +100,25 @@ export default async function DailyCashPage() {
 
       <section>
         <SectionHead title="Daily payment split" context="should tie out to deposits" />
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(28,25,23,0.04)]">
           <table className="w-full border-collapse text-[13px]">
-            <thead className="bg-slate-50">
+            <thead>
               <tr>
-                <th className="border-b border-slate-200 px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-slate-500">Date</th>
+                <th className="border-b border-stone-200 bg-stone-50/80 px-3 py-2 text-left text-[10.5px] font-semibold uppercase tracking-[0.08em] text-stone-400">Date</th>
                 {d.payTypeNames.map((t) => (
-                  <th key={t} className="border-b border-slate-200 px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-slate-500 whitespace-nowrap">{payLabel(t)}</th>
+                  <th key={t} className="whitespace-nowrap border-b border-stone-200 bg-stone-50/80 px-3 py-2 text-right text-[10.5px] font-semibold uppercase tracking-[0.08em] text-stone-400">{payLabel(t)}</th>
                 ))}
-                <th className="border-b border-slate-200 bg-slate-100 px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-slate-600">Total</th>
+                <th className="border-b border-stone-200 bg-stone-100/80 px-3 py-2 text-right text-[10.5px] font-semibold uppercase tracking-[0.08em] text-stone-500">Total</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-stone-100">
               {d.payMatrix.map((m) => (
-                <tr key={m.saleDate} className="hover:bg-slate-50">
-                  <td className="px-3 py-1.5 whitespace-nowrap">{shortDate(m.saleDate)}</td>
+                <tr key={m.saleDate} className="transition-colors hover:bg-emerald-50/40">
+                  <td className="whitespace-nowrap px-3 py-1.5 text-stone-600">{shortDate(m.saleDate)}</td>
                   {d.payTypeNames.map((t) => (
-                    <td key={t} className="px-3 py-1.5 text-right tabular-nums text-slate-700">{m.byType[t] ? money(m.byType[t], { compact: true }) : <span className="text-slate-300">—</span>}</td>
+                    <td key={t} className="px-3 py-1.5 text-right tabular-nums text-stone-600">{m.byType[t] ? money(m.byType[t], { compact: true }) : <span className="text-stone-300">—</span>}</td>
                   ))}
-                  <td className="bg-slate-50 px-3 py-1.5 text-right font-medium tabular-nums text-slate-900">{money(m.total, { compact: true })}</td>
+                  <td className="bg-stone-50/60 px-3 py-1.5 text-right font-medium tabular-nums text-stone-900">{money(m.total, { compact: true })}</td>
                 </tr>
               ))}
             </tbody>

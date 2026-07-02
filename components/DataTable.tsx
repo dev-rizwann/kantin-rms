@@ -70,9 +70,9 @@ export function DataTable<T extends Record<string, any>>({
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+    <div className="bg-white border border-stone-200 rounded-lg shadow-sm overflow-hidden">
       {search && (
-        <div className="p-3 border-b border-slate-100 flex items-center gap-3">
+        <div className="p-3 border-b border-stone-100 flex items-center gap-3">
           <input
             type="search"
             placeholder="Search…"
@@ -81,16 +81,16 @@ export function DataTable<T extends Record<string, any>>({
               setQuery(e.target.value)
               setPage(1)
             }}
-            className="px-3 py-1.5 border border-slate-200 rounded-md text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 border border-stone-200 rounded-md text-sm w-72 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-stone-500">
             {filtered.length.toLocaleString()} rows
           </span>
         </div>
       )}
       <div className="overflow-x-auto scrollbar-thin">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+          <thead className="bg-stone-50 text-stone-600 text-xs uppercase tracking-wide">
             <tr>
               {columns.map((c) => {
                 const isSort = sort?.key === c.key
@@ -105,15 +105,15 @@ export function DataTable<T extends Record<string, any>>({
                     )}
                   >
                     {c.header}
-                    {isSort && <span className="ml-1 text-slate-400">{sort?.dir === "asc" ? "▲" : "▼"}</span>}
+                    {isSort && <span className="ml-1 text-stone-400">{sort?.dir === "asc" ? "▲" : "▼"}</span>}
                   </th>
                 )
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-stone-100">
             {pageRows.map((row, i) => (
-              <tr key={i} className="hover:bg-slate-50">
+              <tr key={i} className="hover:bg-stone-50">
                 {columns.map((c) => (
                   <td
                     key={String(c.key)}
@@ -130,7 +130,7 @@ export function DataTable<T extends Record<string, any>>({
             ))}
             {pageRows.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="px-3 py-8 text-center text-slate-400">
+                <td colSpan={columns.length} className="px-3 py-8 text-center text-stone-400">
                   No data
                 </td>
               </tr>
@@ -139,7 +139,7 @@ export function DataTable<T extends Record<string, any>>({
         </table>
       </div>
       {pages > 1 && (
-        <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100 text-xs text-slate-500">
+        <div className="flex items-center justify-between px-3 py-2 border-t border-stone-100 text-xs text-stone-500">
           <div>
             Page {page} of {pages}
           </div>
@@ -147,14 +147,14 @@ export function DataTable<T extends Record<string, any>>({
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-2 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40"
+              className="px-2 py-1 border border-stone-200 rounded hover:bg-stone-50 disabled:opacity-40"
             >
               Previous
             </button>
             <button
               onClick={() => setPage((p) => Math.min(pages, p + 1))}
               disabled={page === pages}
-              className="px-2 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40"
+              className="px-2 py-1 border border-stone-200 rounded hover:bg-stone-50 disabled:opacity-40"
             >
               Next
             </button>

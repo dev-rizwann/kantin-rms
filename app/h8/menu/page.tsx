@@ -19,7 +19,10 @@ export default async function MenuPage() {
 
   return (
     <>
-      <PageHeader title="Menu Performance" subtitle={`Live · through ${shortDate(d.meta.lastSaleDate)} · what's selling and what isn't`} />
+      <PageHeader
+        title="Menu Performance"
+        chips={["Live", `through ${shortDate(d.meta.lastSaleDate)}`, "what's selling and what isn't"]}
+      />
       <KpiStrip items={kpis} />
 
       <section className="mb-6">
@@ -28,7 +31,7 @@ export default async function MenuPage() {
           rows={d.categories}
           rank
           cols={[
-            { key: "cat", header: "Category", render: (r) => <span className="font-medium text-slate-900">{r.category}</span> },
+            { key: "cat", header: "Category", render: (r) => <span className="font-medium text-stone-900">{r.category}</span> },
             { key: "items", header: "Items", numeric: true, muted: true, render: (r) => num(r.items) },
             { key: "qty", header: "Qty", numeric: true, render: (r) => num(r.qty) },
             { key: "sales", header: "Sales", numeric: true, lead: true, render: (r) => money(r.sales), bar: (r) => r.sales / maxCatSales },

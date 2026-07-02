@@ -14,8 +14,8 @@ export default async function NewGrnPage() {
     <>
       <PageHeader title="New GRN" subtitle="Record a delivery. Enter the physical count for each item." />
       {products.length === 0 ? (
-        <div className="bg-white border border-dashed border-slate-300 rounded-lg p-10 text-center text-slate-500">
-          You need at least one product before recording a GRN. <a href="/h8/products/new" className="text-blue-600 hover:underline">Add a product first.</a>
+        <div className="bg-white border border-dashed border-stone-300 rounded-lg p-10 text-center text-stone-500">
+          You need at least one product before recording a GRN. <a href="/h8/products/new" className="text-emerald-600 hover:underline">Add a product first.</a>
         </div>
       ) : (
         <GrnForm

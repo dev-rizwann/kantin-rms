@@ -2,7 +2,7 @@ import clsx from "clsx"
 
 export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={clsx("bg-white border border-slate-200 rounded-lg shadow-sm", className)}>
+    <div className={clsx("rounded-xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(28,25,23,0.04)]", className)}>
       {children}
     </div>
   )
@@ -10,9 +10,9 @@ export function Card({ children, className }: { children: React.ReactNode; class
 
 export function CardHeader({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="px-4 py-3 border-b border-slate-100">
-      <div className="text-sm font-semibold text-slate-800">{title}</div>
-      {sub && <div className="text-xs text-slate-500 mt-0.5">{sub}</div>}
+    <div className="border-b border-stone-100 px-4 py-3">
+      <div className="font-display text-[13.5px] font-semibold tracking-tight text-stone-800">{title}</div>
+      {sub && <div className="mt-0.5 text-[11px] text-stone-400">{sub}</div>}
     </div>
   )
 }

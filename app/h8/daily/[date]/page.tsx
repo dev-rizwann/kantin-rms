@@ -19,15 +19,15 @@ export default async function DayDetailPage({ params }: { params: { date: string
   const maxItem = Math.max(1, ...d.items.map((i) => i.sales))
 
   const back = (
-    <Link href="/h8/daily" className="text-[13px] text-blue-600 hover:underline">← Daily & Cash</Link>
+    <Link href="/h8/daily" className="text-[13px] font-medium text-emerald-700 hover:underline">← Daily & Cash</Link>
   )
 
   if (!d.hasData) {
     return (
       <>
         <div className="mb-2">{back}</div>
-        <PageHeader title={shortDate(date)} subtitle="Daily detail · live" />
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+        <PageHeader title={shortDate(date)} chips={["Daily detail", "live"]} />
+        <div className="rounded-xl border border-stone-200 bg-white px-4 py-10 text-center text-sm text-stone-500">
           No sales recorded on this date.
         </div>
       </>
@@ -45,13 +45,13 @@ export default async function DayDetailPage({ params }: { params: { date: string
   return (
     <>
       <div className="mb-2">{back}</div>
-      <PageHeader title={shortDate(date)} subtitle="Daily detail · live" />
+      <PageHeader title={shortDate(date)} chips={["Daily detail", "live"]} />
       <KpiStrip items={kpis} />
 
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader title="Sales by hour" />
-          <CardBody><SimpleBarChart data={d.hourly} xKey="hour" yKey="gross" color="#2563eb" /></CardBody>
+          <CardBody><SimpleBarChart data={d.hourly} xKey="hour" yKey="gross" /></CardBody>
         </Card>
         <Card>
           <CardHeader title="Cashiers" />
@@ -59,7 +59,7 @@ export default async function DayDetailPage({ params }: { params: { date: string
             <LedgerTable
               rows={d.cashiers}
               cols={[
-                { key: "c", header: "Cashier", render: (r) => <span className="font-medium text-slate-900">{r.cashier}</span> },
+                { key: "c", header: "Cashier", render: (r) => <span className="font-medium text-stone-900">{r.cashier}</span> },
                 { key: "t", header: "Tickets", numeric: true, muted: true, render: (r) => num(r.tickets) },
                 { key: "g", header: "Gross", numeric: true, lead: true, render: (r) => money(r.gross) },
               ]}
@@ -74,7 +74,7 @@ export default async function DayDetailPage({ params }: { params: { date: string
           rows={d.categories}
           rank
           cols={[
-            { key: "cat", header: "Category", render: (r) => <span className="font-medium text-slate-900">{r.category}</span> },
+            { key: "cat", header: "Category", render: (r) => <span className="font-medium text-stone-900">{r.category}</span> },
             { key: "qty", header: "Qty", numeric: true, muted: true, render: (r) => num(r.qty) },
             { key: "sales", header: "Sales", numeric: true, lead: true, render: (r) => money(r.sales), bar: (r) => r.sales / maxCat },
           ]}
@@ -82,13 +82,13 @@ export default async function DayDetailPage({ params }: { params: { date: string
       </section>
 
       <section className="mb-6">
-        <SectionHead title="Items" context={`${d.items.length} · sorted by sales (top sellers first)`} />
+        <SectionHead title="Items" context={`${d.items.length} · top sellers first`} />
         <LedgerTable
           rows={d.items}
           rank
           cols={[
-            { key: "item", header: "Item", render: (r) => <span className="font-medium text-slate-900">{r.item}</span> },
-            { key: "cat", header: "Category", render: (r) => <span className="text-slate-500">{r.category ?? "—"}</span> },
+            { key: "item", header: "Item", render: (r) => <span className="font-medium text-stone-900">{r.item}</span> },
+            { key: "cat", header: "Category", render: (r) => <span className="text-stone-400">{r.category ?? "—"}</span> },
             { key: "qty", header: "Qty", numeric: true, render: (r) => num(r.qty) },
             { key: "sales", header: "Sales", numeric: true, lead: true, render: (r) => money(r.sales), bar: (r) => r.sales / maxItem },
           ]}
@@ -100,7 +100,7 @@ export default async function DayDetailPage({ params }: { params: { date: string
         <LedgerTable
           rows={d.payments}
           cols={[
-            { key: "type", header: "Type", render: (r) => <span className="font-medium text-slate-900">{payLabel(r.paymentType)}</span> },
+            { key: "type", header: "Type", render: (r) => <span className="font-medium text-stone-900">{payLabel(r.paymentType)}</span> },
             { key: "n", header: "Count", numeric: true, muted: true, render: (r) => num(r.count) },
             { key: "net", header: "Net", numeric: true, lead: true, render: (r) => money(r.net) },
           ]}

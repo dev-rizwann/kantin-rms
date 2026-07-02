@@ -7,10 +7,15 @@
 }
 
 html, body {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #f6f5f1; /* warm paper */
+  color: #1c1917;
+}
+
+::selection {
+  background: #a7f3d0;
+  color: #064e3b;
 }
 
 .scrollbar-thin::-webkit-scrollbar { height: 8px; width: 8px; }
-.scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
