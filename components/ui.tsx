@@ -21,7 +21,15 @@ export function KpiStrip({ items }: { items: Kpi[] }) {
       {items.map((k, i) => (
         <div key={i} className="min-w-[8.5rem] flex-1 px-4 py-3">
           <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-stone-400">{k.label}</div>
-          <div className="mt-1 text-xl font-semibold leading-tight tracking-tight tabular-nums text-stone-900">{k.value}</div>
+          <div
+            className={clsx(
+              "mt-1 text-xl font-semibold leading-tight tracking-tight tabular-nums",
+              // when there is no sub-line, let the value itself carry the tone
+              !k.sub && k.tone === "warn" ? "text-amber-600" : !k.sub && k.tone === "bad" ? "text-red-600" : !k.sub && k.tone === "good" ? "text-emerald-700" : "text-stone-900",
+            )}
+          >
+            {k.value}
+          </div>
           {k.sub && (
             <div
               className={clsx(
