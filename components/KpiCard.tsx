@@ -13,7 +13,7 @@ export function KpiCard({
 }) {
   const toneCls =
     tone === "good"
-      ? "border-emerald-200"
+      ? "border-leaf-200"
       : tone === "warn"
         ? "border-amber-200"
         : tone === "bad"

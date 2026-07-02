@@ -79,7 +79,7 @@ export function GrnForm({ products, vendors, uoms }: { products: Product[]; vend
     router.refresh()
   }
 
-  const input = "px-3 py-2.5 border border-stone-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+  const input = "px-3 py-2.5 border border-stone-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-coral-500"
 
   return (
     <form onSubmit={submit} className="max-w-4xl space-y-4 pb-24">
@@ -179,7 +179,7 @@ export function GrnForm({ products, vendors, uoms }: { products: Product[]; vend
           </table>
         </div>
         <div className="px-4 py-3 border-t border-stone-100">
-          <button type="button" onClick={() => setLines((ls) => [...ls, blankLine()])} className="text-sm text-emerald-600 hover:underline">+ Add line</button>
+          <button type="button" onClick={() => setLines((ls) => [...ls, blankLine()])} className="text-sm text-coral-600 hover:underline">+ Add line</button>
         </div>
       </div>
 
@@ -194,7 +194,7 @@ export function GrnForm({ products, vendors, uoms }: { products: Product[]; vend
         </div>
         <div className="flex gap-3">
           <button type="button" onClick={() => router.back()} className="px-4 py-2.5 border border-stone-300 rounded-md hover:bg-stone-50">Cancel</button>
-          <button type="submit" disabled={busy || missingCount > 0} className="px-5 py-2.5 bg-emerald-600 text-white font-medium rounded-md hover:bg-emerald-700 disabled:bg-emerald-300">
+          <button type="submit" disabled={busy || missingCount > 0} className="px-5 py-2.5 bg-coral-600 text-white font-medium rounded-md hover:bg-coral-700 disabled:bg-coral-300">
             {busy ? "Posting…" : "Post GRN"}
           </button>
         </div>

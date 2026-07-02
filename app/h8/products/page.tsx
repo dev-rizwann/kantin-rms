@@ -11,7 +11,7 @@ export default async function ProductsPage() {
     <>
       <PageHeader title="Products" subtitle={`${products.length} raw materials / packaging / resale items`} />
       <div className="mb-4">
-        <Link href="/h8/products/new" className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700">+ New product</Link>
+        <Link href="/h8/products/new" className="px-4 py-2 bg-coral-600 text-white text-sm font-medium rounded-md hover:bg-coral-700">+ New product</Link>
       </div>
       {products.length === 0 ? (
         <div className="bg-white border border-dashed border-stone-300 rounded-lg p-10 text-center text-stone-500">
@@ -38,7 +38,7 @@ export default async function ProductsPage() {
                   <td className="px-3 py-2">{p.stockUomCode ?? p.unit}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{qtyFmt(p.minStock as any)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{p.avgCost ? pkr(p.avgCost as any, 2) : "—"}</td>
-                  <td className="px-3 py-2">{p.isActive ? <span className="text-emerald-600 text-xs">Active</span> : <span className="text-stone-400 text-xs">Inactive</span>}</td>
+                  <td className="px-3 py-2">{p.isActive ? <span className="text-coral-600 text-xs">Active</span> : <span className="text-stone-400 text-xs">Inactive</span>}</td>
                 </tr>
               ))}
             </tbody>

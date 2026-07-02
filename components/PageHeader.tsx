@@ -13,17 +13,17 @@ export function PageHeader({
   return (
     <header className="mb-6">
       {eyebrow && (
-        <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-emerald-700/70">{eyebrow}</div>
+        <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-coral-700/80">{eyebrow}</div>
       )}
       <h1 className="font-display text-[26px] font-semibold tracking-tight text-stone-900">{title}</h1>
       {chips && chips.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {chips.map((c, i) =>
             c === "Live" ? (
-              <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/15">
+              <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-leaf-50 px-2.5 py-0.5 text-[11px] font-medium text-leaf-800 ring-1 ring-inset ring-leaf-600/25">
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-leaf-500 opacity-60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-leaf-500" />
                 </span>
                 Live
               </span>

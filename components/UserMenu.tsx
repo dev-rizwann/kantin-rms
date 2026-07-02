@@ -33,14 +33,14 @@ export function UserMenu({ dark = false }: { dark?: boolean }) {
         className={clsx(
           "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
           dark
-            ? "text-stone-300 hover:bg-white/[0.06] hover:text-white"
+            ? "text-white/85 hover:bg-white/10 hover:text-white"
             : "text-stone-700 hover:bg-stone-100",
         )}
       >
         <span
           className={clsx(
-            "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold",
-            dark ? "bg-emerald-500 text-ink" : "bg-emerald-100 text-emerald-800",
+            "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold",
+            dark ? "bg-white text-coral-600" : "bg-coral-100 text-coral-800",
           )}
         >
           {initials}

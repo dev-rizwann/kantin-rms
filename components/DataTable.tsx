@@ -81,7 +81,7 @@ export function DataTable<T extends Record<string, any>>({
               setQuery(e.target.value)
               setPage(1)
             }}
-            className="px-3 py-1.5 border border-stone-200 rounded-md text-sm w-72 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="px-3 py-1.5 border border-stone-200 rounded-md text-sm w-72 focus:outline-none focus:ring-2 focus:ring-coral-500"
           />
           <span className="text-xs text-stone-500">
             {filtered.length.toLocaleString()} rows

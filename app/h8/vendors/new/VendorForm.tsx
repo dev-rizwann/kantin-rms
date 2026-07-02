@@ -39,7 +39,7 @@ export function VendorForm() {
     router.push("/h8/vendors"); router.refresh()
   }
 
-  const input = "w-full px-3 py-2.5 border border-stone-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+  const input = "w-full px-3 py-2.5 border border-stone-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-coral-500"
   const label = "block text-sm font-medium text-stone-700 mb-1"
 
   return (
@@ -85,7 +85,7 @@ export function VendorForm() {
 
       {error && <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">{error}</div>}
       <div className="flex gap-3">
-        <button type="submit" disabled={busy} className="px-4 py-2.5 bg-emerald-600 text-white font-medium rounded-md hover:bg-emerald-700 disabled:bg-emerald-400">{busy ? "Saving…" : "Save vendor"}</button>
+        <button type="submit" disabled={busy} className="px-4 py-2.5 bg-coral-600 text-white font-medium rounded-md hover:bg-coral-700 disabled:bg-coral-400">{busy ? "Saving…" : "Save vendor"}</button>
         <button type="button" onClick={() => router.back()} className="px-4 py-2.5 border border-stone-300 rounded-md hover:bg-stone-50">Cancel</button>
       </div>
     </form>

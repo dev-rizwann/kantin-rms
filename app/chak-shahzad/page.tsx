@@ -16,7 +16,7 @@ export default function ChakShahzadPage() {
         </p>
         <Link
           href="/"
-          className="inline-block mt-6 text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+          className="inline-block mt-6 text-sm text-coral-600 hover:text-coral-700 font-medium"
         >
           ← Back to all locations
         </Link>

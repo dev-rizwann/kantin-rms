@@ -32,7 +32,7 @@ export default async function InventoryPage() {
             Add your raw materials (potato, oil, cheese, buns…), then record a GRN to bring stock in.
           </p>
           <div className="mt-4 flex gap-3 justify-center">
-            <Link href="/h8/products/new" className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700">+ Add product</Link>
+            <Link href="/h8/products/new" className="px-4 py-2 bg-coral-600 text-white text-sm font-medium rounded-md hover:bg-coral-700">+ Add product</Link>
             <Link href="/h8/grn/new" className="px-4 py-2 border border-stone-300 text-sm font-medium rounded-md hover:bg-stone-50">Record GRN</Link>
           </div>
         </div>
@@ -40,7 +40,7 @@ export default async function InventoryPage() {
         <div className="bg-white border border-stone-200 rounded-lg shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-stone-100 flex items-center justify-between">
             <div className="text-sm font-semibold text-stone-800">On-hand stock</div>
-            <Link href="/h8/products/new" className="text-xs text-emerald-600 hover:underline">+ Add product</Link>
+            <Link href="/h8/products/new" className="text-xs text-coral-600 hover:underline">+ Add product</Link>
           </div>
           <table className="w-full text-sm">
             <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-600">
@@ -92,6 +92,6 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "ok
 }
 
 function Badge({ tone, children }: { tone: "ok" | "warn" | "bad"; children: React.ReactNode }) {
-  const cls = tone === "bad" ? "bg-red-100 text-red-700" : tone === "warn" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-700"
+  const cls = tone === "bad" ? "bg-red-100 text-red-700" : tone === "warn" ? "bg-amber-100 text-amber-800" : "bg-leaf-100 text-leaf-800"
   return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{children}</span>
 }

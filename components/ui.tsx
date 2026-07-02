@@ -25,7 +25,7 @@ export function KpiStrip({ items }: { items: Kpi[] }) {
             className={clsx(
               "mt-1 text-xl font-semibold leading-tight tracking-tight tabular-nums",
               // when there is no sub-line, let the value itself carry the tone
-              !k.sub && k.tone === "warn" ? "text-amber-600" : !k.sub && k.tone === "bad" ? "text-red-600" : !k.sub && k.tone === "good" ? "text-emerald-700" : "text-stone-900",
+              !k.sub && k.tone === "warn" ? "text-amber-600" : !k.sub && k.tone === "bad" ? "text-red-600" : !k.sub && k.tone === "good" ? "text-leaf-700" : "text-stone-900",
             )}
           >
             {k.value}
@@ -34,7 +34,7 @@ export function KpiStrip({ items }: { items: Kpi[] }) {
             <div
               className={clsx(
                 "mt-0.5 text-[11px] tabular-nums",
-                k.tone === "good" ? "font-medium text-emerald-700" : k.tone === "bad" ? "font-medium text-red-600" : k.tone === "warn" ? "font-medium text-amber-600" : "text-stone-500",
+                k.tone === "good" ? "font-medium text-leaf-700" : k.tone === "bad" ? "font-medium text-red-600" : k.tone === "warn" ? "font-medium text-amber-600" : "text-stone-500",
               )}
             >
               {k.sub}
@@ -50,7 +50,7 @@ export function KpiStrip({ items }: { items: Kpi[] }) {
 
 export function Badge({ tone = "neutral", children }: { tone?: "ok" | "warn" | "bad" | "neutral"; children: React.ReactNode }) {
   const cls = {
-    ok: "bg-emerald-50 text-emerald-700 ring-emerald-600/15",
+    ok: "bg-leaf-50 text-leaf-800 ring-leaf-600/20",
     warn: "bg-amber-50 text-amber-700 ring-amber-600/20",
     bad: "bg-red-50 text-red-700 ring-red-600/15",
     neutral: "bg-stone-100 text-stone-500 ring-stone-500/10",
@@ -88,7 +88,7 @@ const T = {
   th: "border-b border-stone-200 bg-stone-50/80 px-3 py-2 text-left text-[10.5px] font-semibold uppercase tracking-[0.08em] text-stone-400 whitespace-nowrap",
   thNum: "border-b border-stone-200 bg-stone-50/80 px-3 py-2 text-right text-[10.5px] font-semibold uppercase tracking-[0.08em] text-stone-400 whitespace-nowrap",
   tbody: "divide-y divide-stone-100",
-  tr: "transition-colors hover:bg-emerald-50/40",
+  tr: "transition-colors hover:bg-coral-50/70",
   tdText: "px-3 py-1.5 text-stone-600",
   tdLead: "px-3 py-1.5 text-right tabular-nums font-medium text-stone-900 whitespace-nowrap",
   tdNum: "px-3 py-1.5 text-right tabular-nums text-stone-600 whitespace-nowrap",
@@ -141,7 +141,7 @@ export function LedgerTable<T>({
                   if (frac != null) {
                     return (
                       <td key={c.key} className="relative px-3 py-1.5 text-right tabular-nums font-medium text-stone-900 whitespace-nowrap">
-                        <span className="absolute inset-y-[5px] left-1 rounded-[3px] bg-emerald-100/80" style={{ width: `${Math.max(2, Math.min(100, frac * 100))}%` }} />
+                        <span className="absolute inset-y-[5px] left-1 rounded-[3px] bg-leaf-200/60" style={{ width: `${Math.max(2, Math.min(100, frac * 100))}%` }} />
                         <span className="relative">{c.render(row, i)}</span>
                       </td>
                     )

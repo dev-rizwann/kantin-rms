@@ -16,10 +16,10 @@ export default async function LandingPage() {
     <main className="flex min-h-screen flex-col">
       <header className="border-b border-stone-200 bg-white px-6 py-6 md:px-12">
         <div className="mx-auto flex max-w-6xl items-start justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-600 font-display text-xl font-bold text-white">K</div>
+          <div className="flex items-center gap-4">
+            <img src="/brand/kantin-logo.png" alt="Kantin — Fresh Choices, Happy Breaks" className="h-14 w-auto rounded-xl" />
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-700">IESPL</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-coral-700">IESPL</div>
               <h1 className="font-display text-2xl font-semibold tracking-tight text-stone-900 md:text-3xl">Kantin RMS</h1>
               <p className="mt-0.5 text-sm text-stone-500">Reporting &amp; management across all locations.</p>
             </div>
@@ -47,7 +47,7 @@ export default async function LandingPage() {
                   href={`/${k.slug}`}
                   className={clsx(
                     "block rounded-2xl border bg-white p-6 shadow-[0_1px_2px_rgba(28,25,23,0.04)] transition-all",
-                    isLive ? "border-stone-200 hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md" : "border-stone-200 opacity-75 hover:opacity-100",
+                    isLive ? "border-stone-200 hover:-translate-y-0.5 hover:border-coral-400 hover:shadow-md" : "border-stone-200 opacity-75 hover:opacity-100",
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -57,8 +57,8 @@ export default async function LandingPage() {
                       <div className="mt-0.5 text-xs text-stone-500">{k.fullAddress}</div>
                     </div>
                     {isLive ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/15">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-leaf-50 px-2.5 py-0.5 text-xs font-medium text-leaf-800 ring-1 ring-inset ring-leaf-600/25">
+                        <span className="h-1.5 w-1.5 rounded-full bg-leaf-500" />
                         Live
                       </span>
                     ) : (
@@ -88,7 +88,7 @@ export default async function LandingPage() {
                           <div className="text-sm text-stone-600">{shortDate(data.lastSaleDate)}</div>
                         </div>
                       </div>
-                      <div className="mt-3 border-t border-stone-100 pt-3 text-xs font-medium text-emerald-700">Open dashboard →</div>
+                      <div className="mt-3 border-t border-stone-100 pt-3 text-xs font-medium text-coral-700">Open dashboard →</div>
                     </div>
                   ) : (
                     <div className="mt-5 border-t border-stone-100 pt-5 text-sm text-stone-500">

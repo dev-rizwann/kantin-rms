@@ -105,12 +105,12 @@ export function Sidebar({ kantin }: { kantin: KantinMeta }) {
         className={clsx(
           "group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] transition-colors",
           active
-            ? "bg-emerald-400/10 font-medium text-emerald-200"
-            : "text-stone-400 hover:bg-white/[0.05] hover:text-stone-100",
+            ? "bg-white/[0.18] font-medium text-white"
+            : "text-white/75 hover:bg-white/10 hover:text-white",
         )}
       >
-        {active && <span className="absolute -left-2 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-emerald-400" />}
-        <span className={clsx(active ? "text-emerald-400" : "text-stone-500 group-hover:text-stone-300", "transition-colors")}>
+        {active && <span className="absolute -left-2 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-leaf-300" />}
+        <span className={clsx(active ? "text-leaf-200" : "text-white/50 group-hover:text-white/80", "transition-colors")}>
           <Icon name={icon} />
         </span>
         {label}
@@ -119,32 +119,30 @@ export function Sidebar({ kantin }: { kantin: KantinMeta }) {
   }
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col bg-ink text-stone-100">
-      {/* Brand */}
-      <div className="flex items-center gap-3 px-5 pb-5 pt-6">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500 font-display text-lg font-bold text-ink ring-1 ring-emerald-300/40">
-          K
-        </div>
-        <div className="leading-tight">
-          <div className="text-[9px] font-semibold uppercase tracking-[0.24em] text-emerald-500">IESPL</div>
-          <div className="font-display text-[17px] font-semibold tracking-tight text-white">Kantin RMS</div>
-        </div>
+    <aside className="flex w-60 shrink-0 flex-col bg-coral-500 text-white">
+      {/* Brand — the actual Kantin logo (its coral background blends into the sidebar) */}
+      <div className="px-4 pb-3 pt-5">
+        <img
+          src="/brand/kantin-logo.png"
+          alt="Kantin — Fresh Choices, Happy Breaks"
+          className="w-[186px]"
+        />
       </div>
 
       {/* Location card */}
       <div className="px-4">
         <Link
           href="/"
-          className="group block rounded-xl border border-white/[0.07] bg-white/[0.04] px-3.5 py-2.5 transition-colors hover:border-emerald-400/40 hover:bg-white/[0.06]"
+          className="group block rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 transition-colors hover:border-white/40 hover:bg-white/[0.14]"
         >
           <div className="flex items-center justify-between gap-2">
             <span className="text-[13px] font-medium text-white">{kantin.short} Kantin</span>
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-leaf-200 opacity-70" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-leaf-300" />
             </span>
           </div>
-          <div className="mt-0.5 flex items-center justify-between text-[11px] text-stone-500">
+          <div className="mt-0.5 flex items-center justify-between text-[11px] text-white/65">
             <span>{kantin.city}</span>
             <span className="opacity-0 transition-opacity group-hover:opacity-100">all locations →</span>
           </div>
@@ -154,17 +152,17 @@ export function Sidebar({ kantin }: { kantin: KantinMeta }) {
       {/* Nav */}
       <nav className="mt-5 flex-1 space-y-6 overflow-y-auto px-4 pb-4">
         <div>
-          <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-600">Reports</div>
+          <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">Reports</div>
           <div className="space-y-0.5">{reportsNav.map((i) => <Item key={i.sub} {...i} />)}</div>
         </div>
         <div>
-          <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-600">Operations</div>
+          <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">Operations</div>
           <div className="space-y-0.5">{operationsNav.map((i) => <Item key={i.sub} {...i} />)}</div>
         </div>
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-ink-line px-3 py-3">
+      <div className="border-t border-white/20 px-3 py-3">
         <UserMenu dark />
       </div>
     </aside>

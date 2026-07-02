@@ -19,9 +19,9 @@ export default async function GrnDetailPage({ params }: { params: { id: string }
       />
 
       <div className="mb-4 flex items-center gap-3">
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${grn.status === "POSTED" ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-600"}`}>{grn.status}</span>
+        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${grn.status === "POSTED" ? "bg-leaf-100 text-leaf-800" : "bg-stone-100 text-stone-600"}`}>{grn.status}</span>
         {grn.invoiceRef && <span className="text-sm text-stone-500">Invoice: {grn.invoiceRef}</span>}
-        <Link href="/h8/grn" className="text-sm text-emerald-600 hover:underline ml-auto">← All GRNs</Link>
+        <Link href="/h8/grn" className="text-sm text-coral-600 hover:underline ml-auto">← All GRNs</Link>
       </div>
 
       <div className="bg-white border border-stone-200 rounded-lg shadow-sm overflow-hidden mb-6">

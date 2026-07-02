@@ -12,8 +12,8 @@ html, body {
 }
 
 ::selection {
-  background: #a7f3d0;
-  color: #064e3b;
+  background: #fbe3dc;
+  color: #752c1f;
 }
 
 .scrollbar-thin::-webkit-scrollbar { height: 8px; width: 8px; }

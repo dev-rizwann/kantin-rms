@@ -24,7 +24,7 @@ export default async function AdminUsersPage() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <Link href="/" className="text-xs text-emerald-600 hover:underline">
+            <Link href="/" className="text-xs text-coral-600 hover:underline">
               ← Back to landing
             </Link>
             <h1 className="text-2xl font-bold text-stone-900 mt-1">User management</h1>
@@ -34,7 +34,7 @@ export default async function AdminUsersPage() {
           </div>
           <button
             disabled
-            className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md opacity-50 cursor-not-allowed"
+            className="px-4 py-2 bg-coral-600 text-white text-sm font-medium rounded-md opacity-50 cursor-not-allowed"
             title="Create user — coming next"
           >
             + New user
@@ -66,7 +66,7 @@ export default async function AdminUsersPage() {
                   <td className="px-4 py-3 text-stone-700">{u.kantinSlug ?? "All"}</td>
                   <td className="px-4 py-3">
                     {u.isActive ? (
-                      <span className="text-emerald-700 text-xs font-medium">Active</span>
+                      <span className="text-coral-700 text-xs font-medium">Active</span>
                     ) : (
                       <span className="text-stone-400 text-xs">Inactive</span>
                     )}

@@ -55,7 +55,7 @@ export function ProductForm({ uoms }: { uoms: Uom[] }) {
     router.refresh()
   }
 
-  const input = "w-full px-3 py-2.5 border border-stone-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+  const input = "w-full px-3 py-2.5 border border-stone-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-coral-500"
 
   return (
     <form onSubmit={submit} className="max-w-2xl bg-white border border-stone-200 rounded-lg shadow-sm p-6 space-y-4">
@@ -90,7 +90,7 @@ export function ProductForm({ uoms }: { uoms: Uom[] }) {
       <div className="border-t border-stone-100 pt-4">
         <div className="flex items-center justify-between mb-2">
           <label className="text-sm font-medium text-stone-700">Purchase pack sizes (optional)</label>
-          <button type="button" onClick={addPack} className="text-xs text-emerald-600 hover:underline">+ Add pack</button>
+          <button type="button" onClick={addPack} className="text-xs text-coral-600 hover:underline">+ Add pack</button>
         </div>
         <p className="text-xs text-stone-400 mb-2">
           If you buy in a bigger unit (e.g. 1 BORI = 25 {stockUomCode}, 1 BOX = 24 {stockUomCode}), define it here so GRN entry can convert.
@@ -120,7 +120,7 @@ export function ProductForm({ uoms }: { uoms: Uom[] }) {
       {error && <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">{error}</div>}
 
       <div className="flex gap-3">
-        <button type="submit" disabled={busy} className="px-4 py-2.5 bg-emerald-600 text-white font-medium rounded-md hover:bg-emerald-700 disabled:bg-emerald-400">
+        <button type="submit" disabled={busy} className="px-4 py-2.5 bg-coral-600 text-white font-medium rounded-md hover:bg-coral-700 disabled:bg-coral-400">
           {busy ? "Saving…" : "Save product"}
         </button>
         <button type="button" onClick={() => router.back()} className="px-4 py-2.5 border border-stone-300 rounded-md hover:bg-stone-50">Cancel</button>

@@ -16,8 +16,8 @@ import {
   YAxis,
 } from "recharts"
 
-// fresh-ledger palette: forest first, then teal/amber/stone accents
-const PALETTE = ["#047857", "#0d9488", "#d97706", "#78716c", "#dc2626", "#0369a1", "#7c3aed", "#65a30d"]
+// Kantin brand palette: coral first, then leaf green + warm accents
+const PALETTE = ["#e96047", "#80c048", "#d97706", "#0f766e", "#78716c", "#4f46e5", "#c026d3", "#65a30d"]
 const GRID = "#f0efeb"
 const TICK = "#a8a29e"
 
@@ -32,7 +32,7 @@ export function MiniLineChart({
   data,
   xKey,
   yKey,
-  color = "#047857",
+  color = "#e96047",
   height = 200,
 }: {
   data: any[]
@@ -61,7 +61,7 @@ export function SimpleBarChart({
   data,
   xKey,
   yKey,
-  color = "#047857",
+  color = "#e96047",
   height = 200,
 }: {
   data: any[]
@@ -79,7 +79,7 @@ export function SimpleBarChart({
         <Tooltip
           formatter={(v: any) => (typeof v === "number" ? v.toLocaleString() : v)}
           contentStyle={tooltipStyle}
-          cursor={{ fill: "rgba(4,120,87,0.06)" }}
+          cursor={{ fill: "rgba(233,96,71,0.07)" }}
         />
         <Bar dataKey={yKey} fill={color} radius={[4, 4, 0, 0]} isAnimationActive={false} />
       </BarChart>

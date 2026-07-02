@@ -10,7 +10,7 @@ export default async function VendorsPage() {
     <>
       <PageHeader title="Vendors" subtitle={`${vendors.length} suppliers`} />
       <div className="mb-4">
-        <Link href="/h8/vendors/new" className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700">+ New vendor</Link>
+        <Link href="/h8/vendors/new" className="px-4 py-2 bg-coral-600 text-white text-sm font-medium rounded-md hover:bg-coral-700">+ New vendor</Link>
       </div>
       {vendors.length === 0 ? (
         <div className="bg-white border border-dashed border-stone-300 rounded-lg p-10 text-center text-stone-500">
@@ -37,11 +37,11 @@ export default async function VendorsPage() {
                   <td className="px-3 py-2 text-stone-600">{v.whatsapp ?? v.phone ?? "—"}</td>
                   <td className="px-3 py-2">
                     {v.isSalesTaxRegistered
-                      ? <span className="text-emerald-600 text-xs">STRN {v.strn ?? "✓"}</span>
+                      ? <span className="text-coral-600 text-xs">STRN {v.strn ?? "✓"}</span>
                       : <span className="text-stone-400 text-xs">Unregistered</span>}
                   </td>
                   <td className="px-3 py-2 text-stone-600 text-xs">{v.paymentTermsDays != null ? `Net ${v.paymentTermsDays}d` : "—"}</td>
-                  <td className="px-3 py-2">{v.isActive ? <span className="text-emerald-600 text-xs">Active</span> : <span className="text-stone-400 text-xs">Inactive</span>}</td>
+                  <td className="px-3 py-2">{v.isActive ? <span className="text-coral-600 text-xs">Active</span> : <span className="text-stone-400 text-xs">Inactive</span>}</td>
                 </tr>
               ))}
             </tbody>

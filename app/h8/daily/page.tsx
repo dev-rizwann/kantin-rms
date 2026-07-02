@@ -36,7 +36,7 @@ export default async function DailyCashPage() {
         <LedgerTable
           rows={d.daily}
           cols={[
-            { key: "date", header: "Date", render: (r) => <Link href={`/h8/daily/${r.saleDate}`} className="font-medium text-emerald-700 hover:underline">{shortDate(r.saleDate)}</Link> },
+            { key: "date", header: "Date", render: (r) => <Link href={`/h8/daily/${r.saleDate}`} className="font-medium text-coral-700 hover:underline">{shortDate(r.saleDate)}</Link> },
             { key: "tickets", header: "Tickets", numeric: true, muted: true, render: (r) => num(r.tickets) },
             { key: "gross", header: "Gross", numeric: true, lead: true, render: (r) => money(r.gross) },
             { key: "pay", header: "Payments", numeric: true, render: (r) => money(r.paymentsNet) },
@@ -113,7 +113,7 @@ export default async function DailyCashPage() {
             </thead>
             <tbody className="divide-y divide-stone-100">
               {d.payMatrix.map((m) => (
-                <tr key={m.saleDate} className="transition-colors hover:bg-emerald-50/40">
+                <tr key={m.saleDate} className="transition-colors hover:bg-coral-50/70">
                   <td className="whitespace-nowrap px-3 py-1.5 text-stone-600">{shortDate(m.saleDate)}</td>
                   {d.payTypeNames.map((t) => (
                     <td key={t} className="px-3 py-1.5 text-right tabular-nums text-stone-600">{m.byType[t] ? money(m.byType[t], { compact: true }) : <span className="text-stone-300">—</span>}</td>
