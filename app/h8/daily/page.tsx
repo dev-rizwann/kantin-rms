@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { PageHeader } from "@/components/PageHeader"
 import { KpiStrip, LedgerTable, SectionHead, Badge, type Kpi } from "@/components/ui"
 import { money, num, shortDate, timeOnly } from "@/lib/format"
@@ -32,7 +33,7 @@ export default async function DailyCashPage() {
         <LedgerTable
           rows={d.daily}
           cols={[
-            { key: "date", header: "Date", render: (r) => shortDate(r.saleDate) },
+            { key: "date", header: "Date", render: (r) => <Link href={`/h8/daily/${r.saleDate}`} className="font-medium text-blue-600 hover:underline">{shortDate(r.saleDate)}</Link> },
             { key: "tickets", header: "Tickets", numeric: true, muted: true, render: (r) => num(r.tickets) },
             { key: "gross", header: "Gross", numeric: true, lead: true, render: (r) => money(r.gross) },
             { key: "pay", header: "Payments", numeric: true, render: (r) => money(r.paymentsNet) },

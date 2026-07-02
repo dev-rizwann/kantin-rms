@@ -367,3 +367,92 @@ export async function getH8DailyCashLive(): Promise<H8DailyCashLive> {
     payTypeNames,
   }
 }
+
+// =========================================================================
+// DAY DETAIL — one date drill-down (totals, categories, items, payments)
+// Single-date filter keeps it tiny & fast; materialized CTEs = plan-proof.
+// =========================================================================
+
+export interface H8DayDetail {
+  date: string
+  hasData: boolean
+  kpis: {
+    tickets: number; gross: number; rounding: number; voids: number
+    itemsSold: number; distinctItems: number; cancels: number
+    cashNet: number; nonCashNet: number; avgTicket: number
+  }
+  payments: { paymentType: string; count: number; net: number }[]
+  cashiers: { cashier: string; tickets: number; gross: number }[]
+  categories: { category: string; qty: number; sales: number }[]
+  items: { item: string; category: string | null; qty: number; sales: number }[]
+  hourly: { hour: number; gross: number }[]
+}
+
+export async function getH8DayDetailLive(date: string): Promise<H8DayDetail> {
+  const rows = await prisma.$queryRaw<{ payload: any }[]>`
+    WITH co AS MATERIALIZED (
+      SELECT id, staff_id, total, rounding, void
+      FROM mp_checkout WHERE kantin_slug=${K} AND created::date = ${date}::date
+    ),
+    si AS MATERIALIZED (
+      SELECT s.id, s.item_id, s.price, EXTRACT(HOUR FROM s.sale_time)::int AS hr,
+             (cn.id IS NOT NULL) AS canceled, it.title AS item, cat.title AS category
+      FROM mp_itemsale s
+      LEFT JOIN mp_cancel cn ON cn.itemsale_id=s.id AND cn.kantin_slug=${K}
+      LEFT JOIN mp_item it ON it.id=s.item_id AND it.kantin_slug=${K}
+      LEFT JOIN mp_category cat ON cat.id=it.category_id AND cat.kantin_slug=${K}
+      WHERE s.kantin_slug=${K} AND s.sale_time::date = ${date}::date
+    ),
+    pm AS MATERIALIZED (
+      SELECT pt.title AS ptype, (p.paid - p.balance) AS net
+      FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
+      WHERE p.kantin_slug=${K} AND p.payment_time::date = ${date}::date
+    )
+    SELECT json_build_object(
+      'kpis', json_build_object(
+        'tickets', (SELECT COUNT(*) FROM co WHERE NOT void),
+        'gross', (SELECT COALESCE(SUM(total),0) FROM co WHERE NOT void),
+        'rounding', (SELECT COALESCE(SUM(rounding),0) FROM co WHERE NOT void),
+        'voids', (SELECT COUNT(*) FROM co WHERE void),
+        'items_sold', (SELECT COUNT(*) FROM si WHERE NOT canceled),
+        'distinct_items', (SELECT COUNT(DISTINCT item_id) FROM si WHERE NOT canceled),
+        'cancels', (SELECT COUNT(*) FROM si WHERE canceled),
+        'cash_net', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype=' -1'),
+        'noncash_net', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype<>' -1')),
+      'payments', (SELECT COALESCE(json_agg(p ORDER BY p.net DESC),'[]'::json) FROM (
+        SELECT ptype AS payment_type, COUNT(*) AS cnt, COALESCE(SUM(net),0) AS net FROM pm GROUP BY ptype) p),
+      'cashiers', (SELECT COALESCE(json_agg(c ORDER BY c.gross DESC),'[]'::json) FROM (
+        SELECT (st.fname||' '||st.sname) AS cashier,
+               COUNT(*) FILTER (WHERE NOT co.void) AS tickets,
+               COALESCE(SUM(co.total) FILTER (WHERE NOT co.void),0) AS gross
+        FROM co JOIN mp_staff st ON st.id=co.staff_id AND st.kantin_slug=${K}
+        GROUP BY st.id, st.fname, st.sname) c),
+      'categories', (SELECT COALESCE(json_agg(x ORDER BY x.sales DESC),'[]'::json) FROM (
+        SELECT COALESCE(category,'(uncategorized)') AS category, COUNT(*) AS qty, COALESCE(SUM(price),0) AS sales
+        FROM si WHERE NOT canceled GROUP BY COALESCE(category,'(uncategorized)')) x),
+      'items', (SELECT COALESCE(json_agg(y ORDER BY y.sales DESC),'[]'::json) FROM (
+        SELECT item, category, COUNT(*) AS qty, COALESCE(SUM(price),0) AS sales
+        FROM si WHERE NOT canceled GROUP BY item, category) y),
+      'hourly', (SELECT COALESCE(json_agg(h ORDER BY h.hour),'[]'::json) FROM (
+        SELECT hr AS hour, COALESCE(SUM(price),0) AS gross FROM si WHERE NOT canceled GROUP BY hr) h)
+    ) AS payload
+  `
+  const p = rows[0]?.payload ?? {}
+  const k = p.kpis ?? {}
+  const tickets = n(k.tickets)
+  return {
+    date,
+    hasData: tickets > 0 || n(k.items_sold) > 0,
+    kpis: {
+      tickets, gross: n(k.gross), rounding: n(k.rounding), voids: n(k.voids),
+      itemsSold: n(k.items_sold), distinctItems: n(k.distinct_items), cancels: n(k.cancels),
+      cashNet: n(k.cash_net), nonCashNet: n(k.noncash_net),
+      avgTicket: tickets ? n(k.gross) / tickets : 0,
+    },
+    payments: (p.payments ?? []).map((x: any) => ({ paymentType: x.payment_type, count: n(x.cnt), net: n(x.net) })),
+    cashiers: (p.cashiers ?? []).map((c: any) => ({ cashier: c.cashier, tickets: n(c.tickets), gross: n(c.gross) })),
+    categories: (p.categories ?? []).map((x: any) => ({ category: x.category, qty: n(x.qty), sales: n(x.sales) })),
+    items: (p.items ?? []).map((y: any) => ({ item: y.item, category: y.category ?? null, qty: n(y.qty), sales: n(y.sales) })),
+    hourly: (p.hourly ?? []).map((h: any) => ({ hour: n(h.hour), gross: n(h.gross) })),
+  }
+}
