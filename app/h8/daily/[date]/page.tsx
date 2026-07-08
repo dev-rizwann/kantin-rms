@@ -19,7 +19,16 @@ export default async function DayDetailPage({ params }: { params: { date: string
   const maxItem = Math.max(1, ...d.items.map((i) => i.sales))
 
   const back = (
-    <Link href="/h8/daily" className="text-[13px] font-medium text-coral-700 hover:underline">← Daily & Cash</Link>
+    <div className="flex items-center justify-between gap-3">
+      <Link href="/h8/daily" className="text-[13px] font-medium text-coral-700 hover:underline">← Daily & Cash</Link>
+      <a
+        href={`/api/export/items-daily?from=${date}&to=${date}`}
+        className="text-[12.5px] font-medium text-coral-700 hover:underline"
+        download
+      >
+        ⬇ Export this day (Excel)
+      </a>
+    </div>
   )
 
   if (!d.hasData) {

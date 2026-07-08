@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ExportExcel } from "@/components/ExportExcel"
 import { PageHeader } from "@/components/PageHeader"
 import { KpiStrip, LedgerTable, SectionHead, Badge, type Kpi } from "@/components/ui"
 import { money, num, shortDate, timeOnly } from "@/lib/format"
@@ -25,10 +26,13 @@ export default async function DailyCashPage() {
 
   return (
     <>
-      <PageHeader
-        title="Daily & Cash"
-        chips={["Live", `through ${shortDate(d.meta.lastSaleDate)}`, "reconciliation & accountability"]}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader
+          title="Daily & Cash"
+          chips={["Live", `through ${shortDate(d.meta.lastSaleDate)}`, "reconciliation & accountability"]}
+        />
+        <div className="pt-1"><ExportExcel /></div>
+      </div>
       <KpiStrip items={kpis} />
 
       <section className="mb-6">
