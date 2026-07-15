@@ -97,25 +97,28 @@ async function getPosRollup(kantinSlug: string, from?: string, to?: string): Pro
       LEFT JOIN mp_category c ON c.id=i.category_id AND c.kantin_slug=${kantinSlug}
       WHERE i.kantin_slug=${kantinSlug}
     ),
-    cancels AS MATERIALIZED (
-      SELECT DISTINCT itemsale_id FROM mp_cancel WHERE kantin_slug=${kantinSlug}
+    blocked AS MATERIALIZED (
+      SELECT
+        (SELECT COALESCE(jsonb_object_agg(itemsale_id::text, true), '{}'::jsonb)
+         FROM (SELECT DISTINCT itemsale_id FROM mp_cancel WHERE kantin_slug=${kantinSlug}) c) AS canceled,
+        (SELECT COALESCE(jsonb_object_agg(itemsale_id::text, true), '{}'::jsonb)
+         FROM (SELECT DISTINCT itemsale_id FROM mp_refund WHERE kantin_slug=${kantinSlug}) r) AS refunded
     ),
-    refunds AS MATERIALIZED (
-      SELECT DISTINCT itemsale_id FROM mp_refund WHERE kantin_slug=${kantinSlug}
-    ),
-    checkouts AS MATERIALIZED (
-      SELECT receipt_id, bool_or(void) AS void
-      FROM mp_checkout WHERE kantin_slug=${kantinSlug} GROUP BY receipt_id
+    checkout_map AS MATERIALIZED (
+      SELECT COALESCE(jsonb_object_agg(receipt_id::text, void), '{}'::jsonb) AS states
+      FROM (
+        SELECT receipt_id, bool_or(void) AS void
+        FROM mp_checkout WHERE kantin_slug=${kantinSlug} GROUP BY receipt_id
+      ) c
     ),
     sales AS MATERIALIZED (
       SELECT s.item_id, COUNT(*) AS units_sold, COALESCE(SUM(s.price),0) AS sales
-      FROM mp_itemsale s
-      LEFT JOIN cancels cn ON cn.itemsale_id=s.id
-      LEFT JOIN refunds rf ON rf.itemsale_id=s.id
-      JOIN checkouts co ON co.receipt_id=s.receipt_id
+      FROM mp_itemsale s CROSS JOIN blocked b CROSS JOIN checkout_map co
       WHERE s.kantin_slug=${kantinSlug}
         AND s.sale_time >= ${start} AND s.sale_time <= ${end}
-        AND cn.itemsale_id IS NULL AND rf.itemsale_id IS NULL AND co.void=false
+        AND NOT (b.canceled ? s.id::text)
+        AND NOT (b.refunded ? s.id::text)
+        AND co.states ->> s.receipt_id::text = 'false'
       GROUP BY s.item_id
     )
     SELECT i.id AS item_id, i.title, i.category, i.price AS current_price,
@@ -164,35 +167,28 @@ export interface CostingDashboardRow {
   foodCostPct: number | null
   margin: number | null
   suggestedPrice: number | null
-  unitsSold: number
-  sales: number
-  theoreticalCogs: number
   aliases: number
   flags: string[]
 }
 
 export async function getCostingDashboard(kantinSlug: string) {
-  const [loaded, pos] = await Promise.all([loadCosting(kantinSlug), getPosRollup(kantinSlug)])
+  const [loaded, pos] = await Promise.all([loadCosting(kantinSlug), getPosCatalog(kantinSlug)])
   const matched = matchRecipeRows(loaded, pos)
-  const rows: CostingDashboardRow[] = matched.map(({ recipe, rows: posRows, primaryRow }) => {
+  const rows: CostingDashboardRow[] = matched.map(({ recipe, primaryRow }) => {
     const cost = costRecipe(recipe.id, loaded.graph)
-    const unitsSold = posRows.reduce((s, r) => s + Number(r.units_sold), 0)
-    const sales = posRows.reduce((s, r) => s + Number(r.sales), 0)
     const sellPrice = primaryRow?.current_price ?? cost.referenceSellPrice
     return {
       id: recipe.id, name: recipe.name, version: cost.version, plateCost: cost.totalCost, sellPrice,
       foodCostPct: sellPrice != null && sellPrice > 0 ? cost.totalCost / sellPrice : null,
       margin: sellPrice == null ? null : sellPrice - cost.totalCost,
       suggestedPrice: cost.suggestedSellPrice,
-      unitsSold, sales, theoreticalCogs: unitsSold * cost.totalCost,
       aliases: recipe.aliases.length, flags: cost.flags.map((f) => f.message),
     }
   }).sort((a, b) => (b.foodCostPct ?? -1) - (a.foodCostPct ?? -1))
 
   const costedProductIds = new Set(loaded.dbRecipes.flatMap((r) => r.activeVersion?.lines.map((l) => l.productId).filter(Boolean) ?? []))
   const ingredients = loaded.dbProducts.filter((p) => p.kind !== "SEMI_FINISHED" && p.isCostingActive)
-  const totalSales = rows.reduce((s, r) => s + r.sales, 0)
-  const totalCogs = rows.reduce((s, r) => s + r.theoreticalCogs, 0)
+  const pricedFoodCosts = rows.flatMap((r) => r.foodCostPct == null ? [] : [r.foodCostPct])
   return {
     rows,
     kpis: {
@@ -202,9 +198,9 @@ export async function getCostingDashboard(kantinSlug: string) {
       missingCosts: ingredients.filter((p) => p.avgCost == null).length,
       estimatedCosts: ingredients.filter((p) => p.costIsEstimated).length,
       unusedIngredients: ingredients.filter((p) => !costedProductIds.has(p.id)).length,
-      weightedFoodCostPct: totalSales > 0 ? totalCogs / totalSales : null,
-      totalSales,
-      totalCogs,
+      averageFoodCostPct: pricedFoodCosts.length
+        ? pricedFoodCosts.reduce((sum, value) => sum + value, 0) / pricedFoodCosts.length
+        : null,
     },
     oil: loaded.dbRecipes.filter((r) => r.oilAllocation).map((r) => ({
       recipeId: r.id, name: r.name, unitsSold: r.oilAllocation!.unitsSold,
