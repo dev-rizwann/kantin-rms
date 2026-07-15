@@ -16,11 +16,6 @@ const reportsNav: NavItem[] = [
 
 const operationsNav: NavItem[] = [
   { sub: "/costing", label: "Recipe Costing", icon: "calculator" },
-  { sub: "/inventory", label: "Inventory", icon: "archive" },
-  { sub: "/grn", label: "GRN", icon: "clipboard" },
-  { sub: "/vendors", label: "Vendors", icon: "truck" },
-  { sub: "/products", label: "Products", icon: "package" },
-  { sub: "/stock-take", label: "Stock Take", icon: "list" },
 ]
 
 type IconName = "chart" | "tag" | "banknote" | "archive" | "clipboard" | "truck" | "package" | "list" | "calculator"
@@ -111,14 +106,14 @@ export function Sidebar({ kantin, showCosting = false }: { kantin: KantinMeta; s
       <Link
         href={href}
         className={clsx(
-          "sidebar-item group relative flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] transition-all duration-200",
+          "sidebar-item group relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] transition-all duration-200",
           active
-            ? "bg-white/[0.18] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.15),0_6px_16px_rgba(92,27,18,.13)]"
-            : "text-white/72 hover:translate-x-0.5 hover:bg-white/[0.09] hover:text-white",
+            ? "bg-white/[0.16] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_5px_14px_rgba(86,25,17,.12)]"
+            : "text-white/70 hover:translate-x-0.5 hover:bg-white/[0.08] hover:text-white",
         )}
       >
-        {active && <span className="absolute -left-[7px] top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-leaf-300 shadow-[0_0_10px_rgba(177,218,124,.75)]" />}
-        <span className={clsx("grid h-7 w-7 place-items-center rounded-lg border transition-all", active ? "border-white/15 bg-white/12 text-leaf-200" : "border-transparent bg-black/[0.055] text-white/55 group-hover:bg-white/10 group-hover:text-white/85")}>
+        {active && <span className="absolute -left-[5px] top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-leaf-300 shadow-[0_0_8px_rgba(177,218,124,.7)]" />}
+        <span className={clsx("grid h-6 w-6 place-items-center rounded-md border transition-all [&>svg]:h-3.5 [&>svg]:w-3.5", active ? "border-white/15 bg-white/12 text-leaf-200" : "border-transparent bg-black/[0.05] text-white/55 group-hover:bg-white/10 group-hover:text-white/85")}>
           <Icon name={icon} />
         </span>
         <span className="sidebar-copy">{label}</span>
@@ -129,52 +124,32 @@ export function Sidebar({ kantin, showCosting = false }: { kantin: KantinMeta; s
   return (
     <aside className="kantin-sidebar flex shrink-0 flex-col text-white">
       {/* Brand — the actual Kantin logo (its coral background blends into the sidebar) */}
-      <div className="sidebar-brand px-4 pb-3 pt-5">
+      <div className="sidebar-brand px-4 pb-3 pt-4">
         <img
           src="/brand/kantin-logo.png"
           alt="Kantin — Fresh Choices, Happy Breaks"
-          className="w-[176px] drop-shadow-[0_5px_12px_rgba(102,28,18,.14)]"
+          className="w-[154px] drop-shadow-[0_4px_10px_rgba(102,28,18,.13)]"
         />
-        <div className="sidebar-brand-copy mt-1.5 flex items-center gap-2 px-1 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-white/52">
-          <span className="h-px w-5 bg-leaf-300/70" /> Kitchen intelligence
+        <div className="sidebar-brand-copy mt-1 flex items-center gap-2 px-1 text-[8.5px] font-semibold uppercase tracking-[0.2em] text-white/50">
+          <span className="h-px w-4 bg-leaf-300/80" /> Kitchen intelligence
         </div>
-      </div>
-
-      {/* Location card */}
-      <div className="sidebar-location px-4">
-        <Link
-          href="/"
-          className="group block rounded-2xl border border-white/18 bg-black/[0.075] px-3.5 py-3 backdrop-blur-sm transition-all hover:border-white/30 hover:bg-white/[0.1]"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">Live location</span>
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-leaf-200 opacity-70" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-leaf-300" />
-            </span>
-          </div>
-          <div className="mt-1.5 flex items-end justify-between">
-            <div><div className="font-display text-[15px] font-semibold text-white">{kantin.short} Kantin</div><div className="text-[10.5px] text-white/58">{kantin.city}</div></div>
-            <span className="opacity-0 transition-opacity group-hover:opacity-100">all locations →</span>
-          </div>
-        </Link>
       </div>
 
       {/* Nav */}
-      <nav className="sidebar-nav scrollbar-thin mt-5 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
+      <nav className="sidebar-nav scrollbar-thin mt-2 flex-1 space-y-4 overflow-y-auto px-3.5 pb-4 pt-2">
         <div>
-          <div className="sidebar-section-label px-2.5 pb-1.5 text-[9.5px] font-semibold uppercase tracking-[0.2em] text-white/42">Reports</div>
-          <div className="space-y-0.5">{reportsNav.map((i) => <Item key={i.sub} {...i} />)}</div>
+          <div className="sidebar-section-label px-2 pb-1 text-[8.5px] font-semibold uppercase tracking-[0.2em] text-white/40">Reports</div>
+          <div className="space-y-px">{reportsNav.map((i) => <Item key={i.sub} {...i} />)}</div>
         </div>
         <div>
-          <div className="sidebar-section-label px-2.5 pb-1.5 text-[9.5px] font-semibold uppercase tracking-[0.2em] text-white/42">Operations</div>
-          <div className="space-y-0.5">{operationsNav.filter((i) => i.sub !== "/costing" || showCosting).map((i) => <Item key={i.sub} {...i} />)}</div>
+          <div className="sidebar-section-label px-2 pb-1 text-[8.5px] font-semibold uppercase tracking-[0.2em] text-white/40">Operations</div>
+          <div className="space-y-px">{operationsNav.filter((i) => i.sub !== "/costing" || showCosting).map((i) => <Item key={i.sub} {...i} />)}</div>
         </div>
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-white/15 bg-black/[0.055] px-3 py-3 backdrop-blur-sm">
-        <UserMenu dark />
+      <div className="sidebar-footer border-t border-white/12 px-2.5 py-2.5 backdrop-blur-sm">
+        <UserMenu dark kantin={kantin} />
       </div>
     </aside>
   )

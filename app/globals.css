@@ -29,40 +29,40 @@ body {
     position: sticky;
     top: 0;
     isolation: isolate;
-    width: 15rem;
+    width: 13.5rem;
     height: 100vh;
     overflow: hidden;
     background:
-      radial-gradient(circle at 18% 8%, rgba(255, 226, 177, .22), transparent 25%),
-      radial-gradient(circle at 92% 42%, rgba(128, 192, 72, .16), transparent 28%),
-      linear-gradient(165deg, #e96047 0%, #d94f37 42%, #b83c2b 76%, #7f2d23 100%);
-    box-shadow: 10px 0 38px rgba(117, 44, 31, .12);
+      radial-gradient(ellipse at 8% 2%, rgba(255, 220, 171, .2), transparent 28%),
+      radial-gradient(ellipse at 100% 72%, rgba(128, 192, 72, .13), transparent 35%),
+      linear-gradient(160deg, #e86249 0%, #d34d37 42%, #a7372a 76%, #782a24 100%);
+    box-shadow: 10px 0 34px rgba(96, 34, 25, .13), inset -1px 0 rgba(255,255,255,.1);
   }
 
   .kantin-sidebar::before {
     content: "";
     position: absolute;
     inset: 0;
-    z-index: -2;
-    opacity: .28;
+    z-index: -1;
+    opacity: .34;
     background-image:
-      radial-gradient(circle at 1px 1px, rgba(255,255,255,.28) 1px, transparent 1.25px),
-      repeating-linear-gradient(118deg, transparent 0 22px, rgba(255,255,255,.035) 22px 23px);
-    background-size: 18px 18px, auto;
-    mask-image: linear-gradient(to bottom, black, rgba(0,0,0,.65) 72%, transparent);
+      repeating-linear-gradient(128deg, transparent 0 7px, rgba(255,255,255,.055) 7px 8px),
+      repeating-linear-gradient(38deg, transparent 0 18px, rgba(73,20,14,.055) 18px 19px);
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.55) 60%, rgba(0,0,0,.2));
   }
 
   .kantin-sidebar::after {
     content: "";
     position: absolute;
+    inset: 0 0 0 auto;
     z-index: -1;
-    right: -5.5rem;
-    bottom: 6.5rem;
-    width: 13rem;
-    height: 13rem;
-    border: 1px solid rgba(255,255,255,.14);
-    border-radius: 999px;
-    box-shadow: 0 0 0 2.25rem rgba(255,255,255,.035), 0 0 0 4.5rem rgba(255,255,255,.025);
+    width: 3px;
+    background: linear-gradient(to bottom, transparent 8%, rgba(177,218,124,.7) 29%, rgba(255,255,255,.18) 58%, transparent 92%);
+    opacity: .7;
+  }
+
+  .sidebar-footer {
+    background: linear-gradient(180deg, rgba(82,20,14,.02), rgba(55,15,12,.14));
   }
 
   .workspace-surface {
@@ -140,4 +140,5 @@ body {
   .kantin-sidebar .sidebar-brand img { width: 3.5rem; max-width: none; object-fit: cover; object-position: left; }
   .kantin-sidebar .sidebar-nav { padding-inline: .75rem; }
   .kantin-sidebar .sidebar-item { justify-content: center; padding-inline: .5rem; }
+  .kantin-sidebar .sidebar-user-copy { display: none; }
 }
