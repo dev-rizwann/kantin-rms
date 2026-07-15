@@ -11,13 +11,15 @@ export function PageHeader({
   eyebrow?: string
 }) {
   return (
-    <header className="mb-6">
-      {eyebrow && (
-        <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-coral-700/80">{eyebrow}</div>
-      )}
-      <h1 className="font-display text-[26px] font-semibold tracking-tight text-stone-900">{title}</h1>
-      {chips && chips.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+    <header className="mb-6 flex items-start gap-3.5">
+      <span className="mt-1.5 h-9 w-1 shrink-0 rounded-full bg-gradient-to-b from-coral-500 via-coral-400 to-leaf-400 shadow-[0_3px_10px_rgba(233,96,71,.2)]" />
+      <div className="min-w-0 flex-1">
+        {eyebrow && (
+          <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-coral-700/80">{eyebrow}</div>
+        )}
+        <h1 className="font-display text-[27px] font-semibold tracking-tight text-stone-900">{title}</h1>
+        {chips && chips.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {chips.map((c, i) =>
             c === "Live" ? (
               <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-leaf-50 px-2.5 py-0.5 text-[11px] font-medium text-leaf-800 ring-1 ring-inset ring-leaf-600/25">
@@ -33,9 +35,10 @@ export function PageHeader({
               </span>
             ),
           )}
-        </div>
-      )}
-      {subtitle && !chips && <p className="mt-1 text-sm text-stone-500">{subtitle}</p>}
+          </div>
+        )}
+        {subtitle && !chips && <p className="mt-1 max-w-3xl text-sm leading-relaxed text-stone-500">{subtitle}</p>}
+      </div>
     </header>
   )
 }

@@ -111,66 +111,69 @@ export function Sidebar({ kantin, showCosting = false }: { kantin: KantinMeta; s
       <Link
         href={href}
         className={clsx(
-          "group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] transition-colors",
+          "sidebar-item group relative flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] transition-all duration-200",
           active
-            ? "bg-white/[0.18] font-medium text-white"
-            : "text-white/75 hover:bg-white/10 hover:text-white",
+            ? "bg-white/[0.18] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.15),0_6px_16px_rgba(92,27,18,.13)]"
+            : "text-white/72 hover:translate-x-0.5 hover:bg-white/[0.09] hover:text-white",
         )}
       >
-        {active && <span className="absolute -left-2 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-leaf-300" />}
-        <span className={clsx(active ? "text-leaf-200" : "text-white/50 group-hover:text-white/80", "transition-colors")}>
+        {active && <span className="absolute -left-[7px] top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-leaf-300 shadow-[0_0_10px_rgba(177,218,124,.75)]" />}
+        <span className={clsx("grid h-7 w-7 place-items-center rounded-lg border transition-all", active ? "border-white/15 bg-white/12 text-leaf-200" : "border-transparent bg-black/[0.055] text-white/55 group-hover:bg-white/10 group-hover:text-white/85")}>
           <Icon name={icon} />
         </span>
-        {label}
+        <span className="sidebar-copy">{label}</span>
       </Link>
     )
   }
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col bg-coral-500 text-white">
+    <aside className="kantin-sidebar flex shrink-0 flex-col text-white">
       {/* Brand — the actual Kantin logo (its coral background blends into the sidebar) */}
-      <div className="px-4 pb-3 pt-5">
+      <div className="sidebar-brand px-4 pb-3 pt-5">
         <img
           src="/brand/kantin-logo.png"
           alt="Kantin — Fresh Choices, Happy Breaks"
-          className="w-[186px]"
+          className="w-[176px] drop-shadow-[0_5px_12px_rgba(102,28,18,.14)]"
         />
+        <div className="sidebar-brand-copy mt-1.5 flex items-center gap-2 px-1 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-white/52">
+          <span className="h-px w-5 bg-leaf-300/70" /> Kitchen intelligence
+        </div>
       </div>
 
       {/* Location card */}
-      <div className="px-4">
+      <div className="sidebar-location px-4">
         <Link
           href="/"
-          className="group block rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 transition-colors hover:border-white/40 hover:bg-white/[0.14]"
+          className="group block rounded-2xl border border-white/18 bg-black/[0.075] px-3.5 py-3 backdrop-blur-sm transition-all hover:border-white/30 hover:bg-white/[0.1]"
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[13px] font-medium text-white">{kantin.short} Kantin</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">Live location</span>
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-leaf-200 opacity-70" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-leaf-300" />
             </span>
           </div>
-          <div className="mt-0.5 flex items-center justify-between text-[11px] text-white/65">
-            <span>{kantin.city}</span>
+          <div className="mt-1.5 flex items-end justify-between">
+            <div><div className="font-display text-[15px] font-semibold text-white">{kantin.short} Kantin</div><div className="text-[10.5px] text-white/58">{kantin.city}</div></div>
             <span className="opacity-0 transition-opacity group-hover:opacity-100">all locations →</span>
           </div>
         </Link>
       </div>
 
       {/* Nav */}
-      <nav className="mt-5 flex-1 space-y-6 overflow-y-auto px-4 pb-4">
+      <nav className="sidebar-nav scrollbar-thin mt-5 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
         <div>
-          <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">Reports</div>
+          <div className="sidebar-section-label px-2.5 pb-1.5 text-[9.5px] font-semibold uppercase tracking-[0.2em] text-white/42">Reports</div>
           <div className="space-y-0.5">{reportsNav.map((i) => <Item key={i.sub} {...i} />)}</div>
         </div>
         <div>
-          <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">Operations</div>
+          <div className="sidebar-section-label px-2.5 pb-1.5 text-[9.5px] font-semibold uppercase tracking-[0.2em] text-white/42">Operations</div>
           <div className="space-y-0.5">{operationsNav.filter((i) => i.sub !== "/costing" || showCosting).map((i) => <Item key={i.sub} {...i} />)}</div>
         </div>
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-white/20 px-3 py-3">
+      <div className="border-t border-white/15 bg-black/[0.055] px-3 py-3 backdrop-blur-sm">
         <UserMenu dark />
       </div>
     </aside>
