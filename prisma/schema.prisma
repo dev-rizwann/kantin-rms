@@ -79,6 +79,8 @@ model Kantin {
   stockMovements   StockMovement[]
   stockTakes       StockTake[]
   storageLocations StorageLocation[]
+  recipes          Recipe[]
+  recipeAliases    RecipeAlias[]
 }
 
 // =========================================================================
@@ -114,6 +116,8 @@ model UnitOfMeasure {
   productUoms    ProductUom[]
   convFrom       UomConversion[] @relation("UomConvFrom")
   convTo         UomConversion[] @relation("UomConvTo")
+  recipeOutputs RecipeVersion[] @relation("RecipeOutputUom")
+  recipeLines   RecipeLine[]    @relation("RecipeLineUom")
 
   @@index([dimension])
 }
@@ -212,6 +216,7 @@ enum ProductKind {
   PACKAGING    // boxes, paper bags
   RESALE       // bottles of water, packaged drinks
   SUPPLIES     // non-food consumables
+  SEMI_FINISHED // reusable kitchen prep produced from another recipe
 }
 
 /// Legacy enum kept one release for migration; superseded by UnitOfMeasure.
@@ -247,6 +252,13 @@ model Product {
   // costing
   avgCost          Decimal? @db.Decimal(14, 6) // weighted-average, recomputed on GRN
   lastPurchaseCost Decimal? @db.Decimal(14, 6)
+  // recipe-costing reference inputs; avgCost remains the live valuation source
+  costingCategory   String?
+  standardPackPrice Decimal? @db.Decimal(14, 2)
+  standardPackQty   Decimal? @db.Decimal(20, 6)
+  costingNote       String?
+  costIsEstimated   Boolean  @default(false)
+  isCostingActive   Boolean  @default(true)
   // misc
   preferredVendorId   String?
   inventoryCategoryId String?
@@ -265,9 +277,137 @@ model Product {
   stockMovements StockMovement[]
   stockTakeItems StockTakeItem[]
   costHistory    ProductCostHistory[]
+  recipeLines    RecipeLine[]
+  producedByRecipes Recipe[] @relation("RecipeOutputProduct")
 
   @@unique([kantinSlug, name])
   @@index([kantinSlug, kind])
+}
+
+// =========================================================================
+// RECIPES / COSTING
+// =========================================================================
+
+enum RecipeKind {
+  SEMI_FINISHED
+  MENU
+}
+
+enum RecipeStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum RecipeLineKind {
+  PRODUCT
+  COST_ADJUSTMENT
+}
+
+/// Stable recipe identity. Every save creates an immutable RecipeVersion and
+/// advances activeVersionId so historical costing remains reproducible.
+model Recipe {
+  id              String       @id @default(cuid())
+  kantinSlug      String
+  name            String
+  kind            RecipeKind
+  status          RecipeStatus @default(ACTIVE)
+  outputProductId String?
+  activeVersionId String?      @unique
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  kantin        Kantin                @relation(fields: [kantinSlug], references: [slug])
+  outputProduct Product?              @relation("RecipeOutputProduct", fields: [outputProductId], references: [id])
+  versions      RecipeVersion[]       @relation("RecipeVersions")
+  activeVersion RecipeVersion?        @relation("ActiveRecipeVersion", fields: [activeVersionId], references: [id], onDelete: SetNull)
+  aliases       RecipeAlias[]
+  oilAllocation OilAllocationSetting?
+
+  @@unique([kantinSlug, name])
+  @@index([kantinSlug, kind, status])
+  @@index([outputProductId])
+}
+
+model RecipeVersion {
+  id                 String    @id @default(cuid())
+  recipeId           String
+  version            Int
+  outputQty          Decimal   @db.Decimal(20, 6)
+  outputUomCode      String
+  referenceSellPrice Decimal?  @db.Decimal(14, 2)
+  targetFoodCostPct  Decimal   @default(0.33) @db.Decimal(8, 6)
+  effectiveFrom      DateTime  @default(now())
+  effectiveTo        DateTime?
+  notes              String?
+  createdById        String?
+  createdAt          DateTime  @default(now())
+
+  recipe    Recipe        @relation("RecipeVersions", fields: [recipeId], references: [id], onDelete: Cascade)
+  activeFor Recipe?       @relation("ActiveRecipeVersion")
+  outputUom UnitOfMeasure @relation("RecipeOutputUom", fields: [outputUomCode], references: [code])
+  lines     RecipeLine[]
+
+  @@unique([recipeId, version])
+  @@index([recipeId, effectiveFrom])
+}
+
+model RecipeLine {
+  id              String         @id @default(cuid())
+  recipeVersionId String
+  kind            RecipeLineKind @default(PRODUCT)
+  productId       String?
+  label           String?
+  quantity        Decimal        @db.Decimal(20, 6)
+  uomCode         String?
+  fixedUnitCost   Decimal?       @db.Decimal(14, 6)
+  sortOrder       Int            @default(0)
+  notes           String?
+
+  recipeVersion RecipeVersion  @relation(fields: [recipeVersionId], references: [id], onDelete: Cascade)
+  product       Product?       @relation(fields: [productId], references: [id])
+  uom           UnitOfMeasure? @relation("RecipeLineUom", fields: [uomCode], references: [code])
+
+  @@index([recipeVersionId, sortOrder])
+  @@index([productId])
+}
+
+/// Exact POS title/id aliases. Matching never relies on the editable recipe name.
+model RecipeAlias {
+  id              String   @id @default(cuid())
+  kantinSlug      String
+  recipeId        String
+  title           String
+  normalizedTitle String
+  posItemId       BigInt?
+  isPrimary       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  kantin Kantin @relation(fields: [kantinSlug], references: [slug])
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([kantinSlug, normalizedTitle])
+  @@unique([kantinSlug, posItemId])
+  @@index([recipeId])
+}
+
+/// Source assumptions for the workbook-compatible frying-oil allocation.
+/// The active RecipeVersion stores the resulting per-plate adjustment.
+model OilAllocationSetting {
+  id                   String    @id @default(cuid())
+  recipeId             String    @unique
+  unitsSold            Int
+  friesGrams           Decimal   @default(0) @db.Decimal(20, 6)
+  breadedGrams         Decimal   @default(0) @db.Decimal(20, 6)
+  soakFactor           Decimal   @default(1.25) @db.Decimal(10, 6)
+  allocatedCostPerUnit Decimal   @db.Decimal(14, 6)
+  sourceTotalOilSpend  Decimal?  @db.Decimal(14, 2)
+  sourceStart          DateTime?
+  sourceEnd            DateTime?
+  notes                String?
+  updatedAt            DateTime  @updatedAt
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 }
 
 /// Audit trail of weighted-average cost recomputes. The ONE legitimately

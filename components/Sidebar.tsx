@@ -15,6 +15,7 @@ const reportsNav: NavItem[] = [
 ]
 
 const operationsNav: NavItem[] = [
+  { sub: "/costing", label: "Recipe Costing", icon: "calculator" },
   { sub: "/inventory", label: "Inventory", icon: "archive" },
   { sub: "/grn", label: "GRN", icon: "clipboard" },
   { sub: "/vendors", label: "Vendors", icon: "truck" },
@@ -22,7 +23,7 @@ const operationsNav: NavItem[] = [
   { sub: "/stock-take", label: "Stock Take", icon: "list" },
 ]
 
-type IconName = "chart" | "tag" | "banknote" | "archive" | "clipboard" | "truck" | "package" | "list"
+type IconName = "chart" | "tag" | "banknote" | "archive" | "clipboard" | "truck" | "package" | "list" | "calculator"
 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, React.ReactNode> = {
@@ -84,6 +85,13 @@ function Icon({ name }: { name: IconName }) {
         <line x1="9" y1="18" x2="20" y2="18" />
       </>
     ),
+    calculator: (
+      <>
+        <rect x="4" y="2" width="16" height="20" rx="2" />
+        <rect x="7" y="5" width="10" height="4" rx="1" />
+        <path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01" />
+      </>
+    ),
   }
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
@@ -92,7 +100,7 @@ function Icon({ name }: { name: IconName }) {
   )
 }
 
-export function Sidebar({ kantin }: { kantin: KantinMeta }) {
+export function Sidebar({ kantin, showCosting = false }: { kantin: KantinMeta; showCosting?: boolean }) {
   const path = usePathname() ?? ""
   const base = `/${kantin.slug}`
 
@@ -157,7 +165,7 @@ export function Sidebar({ kantin }: { kantin: KantinMeta }) {
         </div>
         <div>
           <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">Operations</div>
-          <div className="space-y-0.5">{operationsNav.map((i) => <Item key={i.sub} {...i} />)}</div>
+          <div className="space-y-0.5">{operationsNav.filter((i) => i.sub !== "/costing" || showCosting).map((i) => <Item key={i.sub} {...i} />)}</div>
         </div>
       </nav>
 
