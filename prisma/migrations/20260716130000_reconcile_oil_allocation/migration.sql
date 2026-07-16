@@ -31,7 +31,7 @@ INSERT INTO "OilAllocationSetting" (
   "id", "kantinSlug", "name", "recipeId", "unitsSold",
   "friesGrams", "breadedGrams", "directOilMl", "directCostInRecipe",
   "soakFactor", "allocatedCostPerUnit", "directOilUnitCost",
-  "sourceTotalOilSpend", "sourceStart", "sourceEnd", "notes"
+  "sourceTotalOilSpend", "sourceStart", "sourceEnd", "notes", "updatedAt"
 )
 SELECT
   'oil-' || md5(r."id"), r."kantinSlug", r."name", r."id",
@@ -49,7 +49,7 @@ SELECT
   true, 1.25, 0, 0.593750, 480000,
   TIMESTAMPTZ '2025-12-27 00:00:00+05',
   TIMESTAMPTZ '2026-07-10 23:59:59+05',
-  'Direct cooking oil already exists as a Cooking Oil recipe line.'
+  'Direct cooking oil already exists as a Cooking Oil recipe line.', NOW()
 FROM "Recipe" r
 WHERE r."kantinSlug" = 'h8'
   AND r."name" IN (
@@ -65,7 +65,7 @@ INSERT INTO "OilAllocationSetting" (
   "id", "kantinSlug", "name", "recipeId", "unitsSold",
   "friesGrams", "breadedGrams", "directOilMl", "directCostInRecipe",
   "soakFactor", "allocatedCostPerUnit", "directOilUnitCost",
-  "sourceTotalOilSpend", "sourceStart", "sourceEnd", "notes"
+  "sourceTotalOilSpend", "sourceStart", "sourceEnd", "notes", "updatedAt"
 )
 SELECT
   'oil-' || md5(r."id"), r."kantinSlug", r."name", r."id",
@@ -83,7 +83,7 @@ SELECT
   false, 1.25, 0, 0.593750, 480000,
   TIMESTAMPTZ '2025-12-27 00:00:00+05',
   TIMESTAMPTZ '2026-07-10 23:59:59+05',
-  'Estimated direct oil; adjust after a kitchen portion test.'
+  'Estimated direct oil; adjust after a kitchen portion test.', NOW()
 FROM "Recipe" r
 WHERE r."kantinSlug" = 'h8'
   AND r."name" IN ('Chicken Sandwich', 'Club Sandwich', 'Shawarma')
@@ -94,17 +94,17 @@ INSERT INTO "OilAllocationSetting" (
   "id", "kantinSlug", "name", "recipeId", "unitsSold",
   "friesGrams", "breadedGrams", "directOilMl", "directCostInRecipe",
   "soakFactor", "allocatedCostPerUnit", "directOilUnitCost",
-  "sourceTotalOilSpend", "sourceStart", "sourceEnd", "notes"
+  "sourceTotalOilSpend", "sourceStart", "sourceEnd", "notes", "updatedAt"
 )
 VALUES
-  ('oil-garlic-mayo-fries', 'h8', 'Garlic Mayo Fries', NULL, 2313, 147, 0, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'POS consumer; recipe still needs linking.'),
-  ('oil-plain-fries', 'h8', 'Plain Fries', NULL, 1007, 147, 0, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'POS consumer; recipe still needs linking.'),
-  ('oil-peri-peri-chips', 'h8', 'Peri Peri chips', NULL, 76, 147, 0, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Treated as a fried potato serving.'),
-  ('oil-combo', 'h8', 'Fries + Nuggets + Tender Combo', NULL, 64, 147, 122, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Estimated mixed fryer load from the POS combo.'),
-  ('oil-six-nuggets', 'h8', '6 Piece Nuggets', NULL, 199, 0, 114, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Six nuggets at approximately 19 g each.'),
-  ('oil-fried-rice', 'h8', 'Fried Rice with Manchurian', NULL, 225, 0, 80, 12, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Estimated 12 ml wok oil and 80 g fried Manchurian chicken per serving.'),
-  ('oil-manchurian', 'h8', 'Chicken Manchurian', NULL, 8, 0, 100, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Estimated 100 g fried breaded chicken.'),
-  ('oil-pasta', 'h8', 'Pasta', NULL, 551, 0, 0, 8, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Estimated 8 ml sauté oil per serving.')
+  ('oil-garlic-mayo-fries', 'h8', 'Garlic Mayo Fries', NULL, 2313, 147, 0, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'POS consumer; recipe still needs linking.', NOW()),
+  ('oil-plain-fries', 'h8', 'Plain Fries', NULL, 1007, 147, 0, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'POS consumer; recipe still needs linking.', NOW()),
+  ('oil-peri-peri-chips', 'h8', 'Peri Peri chips', NULL, 76, 147, 0, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Treated as a fried potato serving.', NOW()),
+  ('oil-combo', 'h8', 'Fries + Nuggets + Tender Combo', NULL, 64, 147, 122, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Estimated mixed fryer load from the POS combo.', NOW()),
+  ('oil-six-nuggets', 'h8', '6 Piece Nuggets', NULL, 199, 0, 114, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Six nuggets at approximately 19 g each.', NOW()),
+  ('oil-fried-rice', 'h8', 'Fried Rice with Manchurian', NULL, 225, 0, 80, 12, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Estimated 12 ml wok oil and 80 g fried Manchurian chicken per serving.', NOW()),
+  ('oil-manchurian', 'h8', 'Chicken Manchurian', NULL, 8, 0, 100, 0, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Estimated 100 g fried breaded chicken.', NOW()),
+  ('oil-pasta', 'h8', 'Pasta', NULL, 551, 0, 0, 8, false, 1.25, 0, 0.593750, 480000, TIMESTAMPTZ '2025-12-27 00:00:00+05', TIMESTAMPTZ '2026-07-10 23:59:59+05', 'Estimated 8 ml sauté oil per serving.', NOW())
 ON CONFLICT ("kantinSlug", "name") DO NOTHING;
 
 -- Recalculate the complete pool immediately so deployment never leaves the
