@@ -35,6 +35,6 @@ export default async function CostingPage() {
         })}</tbody></table>
       </div>
     </section>
-    <OilAllocationCard rows={data.oil} canEdit={canEdit} />
+    <OilAllocationCard rows={data.oil} summary={data.oilSummary} canEdit={canEdit} />
   </>
 }

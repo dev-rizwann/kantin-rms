@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs"
 import { UOM_SEED, convert } from "../lib/uom"
 import {
   OIL_ALLOCATIONS,
+  UNLINKED_OIL_CONSUMERS,
   RECIPE_ALIASES,
   WORKBOOK_INGREDIENTS,
   WORKBOOK_RECIPES,
@@ -11,6 +12,7 @@ import {
   ingredientKind,
 } from "./recipe-seed-data"
 import { normalizeRecipeTitle } from "../lib/recipe-title"
+import { calculateOilAllocation } from "../lib/oil-allocation"
 
 const prisma = new PrismaClient()
 const KANTIN = "h8"
@@ -136,10 +138,71 @@ async function seedWorkbookCosting() {
     const oil = OIL_ALLOCATIONS[seed.name]
     if (oil && !(await prisma.oilAllocationSetting.findUnique({ where: { recipeId: recipe.id } }))) {
       await prisma.oilAllocationSetting.create({ data: {
-        recipeId: recipe.id, unitsSold: oil.unitsSold, friesGrams: oil.friesGrams, breadedGrams: oil.breadedGrams,
+        kantinSlug: KANTIN, name: seed.name, recipeId: recipe.id, unitsSold: oil.unitsSold,
+        friesGrams: oil.friesGrams, breadedGrams: oil.breadedGrams, directOilMl: oil.directOilMl ?? 0,
+        directCostInRecipe: oil.directCostInRecipe ?? false, directOilUnitCost: 0.59375,
         soakFactor: 1.25, allocatedCostPerUnit: oil.cost, sourceTotalOilSpend: 480000,
         sourceStart: new Date("2025-12-27T00:00:00+05:00"), sourceEnd: new Date("2026-07-10T23:59:59+05:00"), notes: oil.notes,
       } })
+    }
+  }
+
+  for (const oil of UNLINKED_OIL_CONSUMERS) {
+    await prisma.oilAllocationSetting.upsert({
+      where: { kantinSlug_name: { kantinSlug: KANTIN, name: oil.name } },
+      update: {},
+      create: {
+        kantinSlug: KANTIN, name: oil.name, unitsSold: oil.unitsSold,
+        friesGrams: oil.friesGrams, breadedGrams: oil.breadedGrams, directOilMl: oil.directOilMl,
+        directCostInRecipe: false, directOilUnitCost: 0.59375, soakFactor: 1.25,
+        allocatedCostPerUnit: 0, sourceTotalOilSpend: 480000,
+        sourceStart: new Date("2025-12-27T00:00:00+05:00"),
+        sourceEnd: new Date("2026-07-10T23:59:59+05:00"), notes: oil.notes,
+      },
+    })
+  }
+
+  const oilSettings = await prisma.oilAllocationSetting.findMany({
+    where: { kantinSlug: KANTIN },
+    include: { recipe: { include: { activeVersion: { include: { lines: true } } } } },
+  })
+  const oilModel = calculateOilAllocation(
+    oilSettings.map((setting) => ({
+      id: setting.id,
+      unitsSold: setting.unitsSold,
+      friesGrams: Number(setting.friesGrams),
+      breadedGrams: Number(setting.breadedGrams),
+      directOilMl: Number(setting.directOilMl),
+      directCostInRecipe: setting.directCostInRecipe,
+    })),
+    { totalOilSpend: 480000, directOilUnitCost: 0.59375, breadedFactor: 1.25 },
+  )
+  const oilById = new Map(oilModel.rows.map((row) => [row.id, row]))
+  for (const setting of oilSettings) {
+    const result = oilById.get(setting.id)!
+    await prisma.oilAllocationSetting.update({
+      where: { id: setting.id },
+      data: { allocatedCostPerUnit: result.recipeAdjustmentPerUnit },
+    })
+    const version = setting.recipe?.activeVersion
+    if (!version) continue
+    const oilLine = version.lines.find((line) => line.kind === "COST_ADJUSTMENT" && /oil/i.test(line.label ?? ""))
+    if (oilLine) {
+      await prisma.recipeLine.update({
+        where: { id: oilLine.id },
+        data: {
+          label: "Oil allocation (calibrated)", quantity: 1,
+          fixedUnitCost: result.recipeAdjustmentPerUnit, notes: "Six-month oil pool allocation",
+        },
+      })
+    } else if (result.recipeAdjustmentPerUnit > 0) {
+      await prisma.recipeLine.create({
+        data: {
+          recipeVersionId: version.id, kind: "COST_ADJUSTMENT", label: "Oil allocation (calibrated)",
+          quantity: 1, fixedUnitCost: result.recipeAdjustmentPerUnit,
+          sortOrder: version.lines.length, notes: "Six-month oil pool allocation",
+        },
+      })
     }
   }
 

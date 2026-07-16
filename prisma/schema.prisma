@@ -36,20 +36,20 @@ enum Role {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   name         String
   passwordHash String
-  role         Role     @default(VIEWER)
-  kantinSlug   String?  // null = global (all kantins). admins are typically global.
-  isActive     Boolean  @default(true)
+  role         Role      @default(VIEWER)
+  kantinSlug   String? // null = global (all kantins). admins are typically global.
+  isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  grnsCreated      Grn[]            @relation("GrnCreatedBy")
-  stockMovementsBy StockMovement[]  @relation("StockMovementBy")
-  stockTakesBy     StockTake[]      @relation("StockTakeBy")
+  grnsCreated      Grn[]           @relation("GrnCreatedBy")
+  stockMovementsBy StockMovement[] @relation("StockMovementBy")
+  stockTakesBy     StockTake[]     @relation("StockTakeBy")
   auditLogs        AuditLog[]
 
   @@index([kantinSlug])
@@ -60,18 +60,18 @@ model User {
 // =========================================================================
 
 model Kantin {
-  slug        String   @id
-  name        String
-  city        String
-  fullAddress String?
-  isLive      Boolean  @default(false)
+  slug            String   @id
+  name            String
+  city            String
+  fullAddress     String?
+  isLive          Boolean  @default(false)
   // Phase-0 config additions
-  defaultCurrency String @default("PKR")
-  timezone        String @default("Asia/Karachi")
+  defaultCurrency String   @default("PKR")
+  timezone        String   @default("Asia/Karachi")
   ntn             String?
   strn            String?
   fbrPosRegNo     String?
-  createdAt   DateTime @default(now())
+  createdAt       DateTime @default(now())
 
   vendors          Vendor[]
   products         Product[]
@@ -81,6 +81,7 @@ model Kantin {
   storageLocations StorageLocation[]
   recipes          Recipe[]
   recipeAliases    RecipeAlias[]
+  oilAllocations   OilAllocationSetting[]
 }
 
 // =========================================================================
@@ -112,10 +113,10 @@ model UnitOfMeasure {
   isActive           Boolean      @default(true)
   sortOrder          Int          @default(0)
 
-  productsStock  Product[]   @relation("ProductStockUom")
-  productUoms    ProductUom[]
-  convFrom       UomConversion[] @relation("UomConvFrom")
-  convTo         UomConversion[] @relation("UomConvTo")
+  productsStock Product[]       @relation("ProductStockUom")
+  productUoms   ProductUom[]
+  convFrom      UomConversion[] @relation("UomConvFrom")
+  convTo        UomConversion[] @relation("UomConvTo")
   recipeOutputs RecipeVersion[] @relation("RecipeOutputUom")
   recipeLines   RecipeLine[]    @relation("RecipeLineUom")
 
@@ -143,13 +144,13 @@ model UomConversion {
 /// 1 BOX = 24 bottles). Reconciles purchase/count units to the product's stock UoM.
 /// This is where cross-dimension bridges live (1 bun = 55 g).
 model ProductUom {
-  id            String         @id @default(cuid())
-  productId     String
-  uomCode       String
-  qtyInStockUom Decimal        @db.Decimal(20, 6) // how many of the product's stock UoM are in one of THIS unit
-  role          ProductUomRole @default(PURCHASE)
-  isDefaultPurchase Boolean    @default(false)
-  isActive      Boolean        @default(true)
+  id                String         @id @default(cuid())
+  productId         String
+  uomCode           String
+  qtyInStockUom     Decimal        @db.Decimal(20, 6) // how many of the product's stock UoM are in one of THIS unit
+  role              ProductUomRole @default(PURCHASE)
+  isDefaultPurchase Boolean        @default(false)
+  isActive          Boolean        @default(true)
 
   product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   uom     UnitOfMeasure @relation(fields: [uomCode], references: [code])
@@ -171,35 +172,35 @@ enum SupplyCadence {
 }
 
 model Vendor {
-  id              String   @id @default(cuid())
-  kantinSlug      String
-  name            String
-  nameUr          String?
-  contactPerson   String?
-  contact         String?
-  phone           String?
-  whatsapp        String?
-  address         String?
-  notes           String?
-  isActive        Boolean  @default(true)
+  id                   String         @id @default(cuid())
+  kantinSlug           String
+  name                 String
+  nameUr               String?
+  contactPerson        String?
+  contact              String?
+  phone                String?
+  whatsapp             String?
+  address              String?
+  notes                String?
+  isActive             Boolean        @default(true)
   // terms + cadence
-  paymentTermsDays Int?
-  leadTimeDays     Int?
-  deliveryDays     String?  // CSV of weekday names, optional
-  supplyCadence    SupplyCadence?
+  paymentTermsDays     Int?
+  leadTimeDays         Int?
+  deliveryDays         String? // CSV of weekday names, optional
+  supplyCadence        SupplyCadence?
   // tax identity (Pakistan)
-  ntn              String?
-  strn             String?
-  isSalesTaxRegistered Boolean @default(false)
+  ntn                  String?
+  strn                 String?
+  isSalesTaxRegistered Boolean        @default(false)
   // payout rails
-  bankName         String?
-  bankAccountTitle String?
-  bankAccountNumber String?
-  iban             String?
-  jazzcashNumber   String?
-  easypaisaNumber  String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  bankName             String?
+  bankAccountTitle     String?
+  bankAccountNumber    String?
+  iban                 String?
+  jazzcashNumber       String?
+  easypaisaNumber      String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
   kantin Kantin @relation(fields: [kantinSlug], references: [slug])
   grns   Grn[]
@@ -213,9 +214,9 @@ model Vendor {
 
 enum ProductKind {
   RAW_MATERIAL // ingredients (potato, oil, cheese)
-  PACKAGING    // boxes, paper bags
-  RESALE       // bottles of water, packaged drinks
-  SUPPLIES     // non-food consumables
+  PACKAGING // boxes, paper bags
+  RESALE // bottles of water, packaged drinks
+  SUPPLIES // non-food consumables
   SEMI_FINISHED // reusable kitchen prep produced from another recipe
 }
 
@@ -239,46 +240,46 @@ enum CountFrequency {
 }
 
 model Product {
-  id           String      @id @default(cuid())
-  kantinSlug   String
-  sku          String?
-  name         String
-  nameUr       String?
-  kind         ProductKind @default(RAW_MATERIAL)
-  unit         StockUnit   @default(PIECE) // legacy; being replaced by stockUomCode
-  stockUomCode String?     // canonical stock unit (backfilled from `unit`)
-  minStock     Decimal     @default(0) @db.Decimal(20, 6)
-  reorderQty   Decimal?    @db.Decimal(20, 6)
+  id                  String         @id @default(cuid())
+  kantinSlug          String
+  sku                 String?
+  name                String
+  nameUr              String?
+  kind                ProductKind    @default(RAW_MATERIAL)
+  unit                StockUnit      @default(PIECE) // legacy; being replaced by stockUomCode
+  stockUomCode        String? // canonical stock unit (backfilled from `unit`)
+  minStock            Decimal        @default(0) @db.Decimal(20, 6)
+  reorderQty          Decimal?       @db.Decimal(20, 6)
   // costing
-  avgCost          Decimal? @db.Decimal(14, 6) // weighted-average, recomputed on GRN
-  lastPurchaseCost Decimal? @db.Decimal(14, 6)
+  avgCost             Decimal?       @db.Decimal(14, 6) // weighted-average, recomputed on GRN
+  lastPurchaseCost    Decimal?       @db.Decimal(14, 6)
   // recipe-costing reference inputs; avgCost remains the live valuation source
-  costingCategory   String?
-  standardPackPrice Decimal? @db.Decimal(14, 2)
-  standardPackQty   Decimal? @db.Decimal(20, 6)
-  costingNote       String?
-  costIsEstimated   Boolean  @default(false)
-  isCostingActive   Boolean  @default(true)
+  costingCategory     String?
+  standardPackPrice   Decimal?       @db.Decimal(14, 2)
+  standardPackQty     Decimal?       @db.Decimal(20, 6)
+  costingNote         String?
+  costIsEstimated     Boolean        @default(false)
+  isCostingActive     Boolean        @default(true)
   // misc
   preferredVendorId   String?
   inventoryCategoryId String?
-  masterProductId     String?  // null = local-only product
+  masterProductId     String? // null = local-only product
   countFrequency      CountFrequency @default(WEEKLY)
   lastCountedAt       DateTime?
-  isActive            Boolean  @default(true)
+  isActive            Boolean        @default(true)
   notes               String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
-  kantin         Kantin              @relation(fields: [kantinSlug], references: [slug])
-  stockUom       UnitOfMeasure?      @relation("ProductStockUom", fields: [stockUomCode], references: [code])
-  productUoms    ProductUom[]
-  grnLines       GrnLine[]
-  stockMovements StockMovement[]
-  stockTakeItems StockTakeItem[]
-  costHistory    ProductCostHistory[]
-  recipeLines    RecipeLine[]
-  producedByRecipes Recipe[] @relation("RecipeOutputProduct")
+  kantin            Kantin               @relation(fields: [kantinSlug], references: [slug])
+  stockUom          UnitOfMeasure?       @relation("ProductStockUom", fields: [stockUomCode], references: [code])
+  productUoms       ProductUom[]
+  grnLines          GrnLine[]
+  stockMovements    StockMovement[]
+  stockTakeItems    StockTakeItem[]
+  costHistory       ProductCostHistory[]
+  recipeLines       RecipeLine[]
+  producedByRecipes Recipe[]             @relation("RecipeOutputProduct")
 
   @@unique([kantinSlug, name])
   @@index([kantinSlug, kind])
@@ -395,19 +396,28 @@ model RecipeAlias {
 /// The active RecipeVersion stores the resulting per-plate adjustment.
 model OilAllocationSetting {
   id                   String    @id @default(cuid())
-  recipeId             String    @unique
+  kantinSlug           String
+  name                 String
+  recipeId             String?   @unique
   unitsSold            Int
   friesGrams           Decimal   @default(0) @db.Decimal(20, 6)
   breadedGrams         Decimal   @default(0) @db.Decimal(20, 6)
+  directOilMl          Decimal   @default(0) @db.Decimal(20, 6)
+  directCostInRecipe   Boolean   @default(false)
   soakFactor           Decimal   @default(1.25) @db.Decimal(10, 6)
   allocatedCostPerUnit Decimal   @db.Decimal(14, 6)
+  directOilUnitCost    Decimal   @default(0.59375) @db.Decimal(14, 6)
   sourceTotalOilSpend  Decimal?  @db.Decimal(14, 2)
   sourceStart          DateTime?
   sourceEnd            DateTime?
   notes                String?
   updatedAt            DateTime  @updatedAt
 
-  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  kantin Kantin  @relation(fields: [kantinSlug], references: [slug])
+  recipe Recipe? @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([kantinSlug, name])
+  @@index([kantinSlug])
 }
 
 /// Audit trail of weighted-average cost recomputes. The ONE legitimately
@@ -421,7 +431,7 @@ model ProductCostHistory {
   qtyOnHandAtCalc Decimal  @db.Decimal(20, 6)
   inboundQty      Decimal  @db.Decimal(20, 6)
   inboundUnitCost Decimal  @db.Decimal(14, 6)
-  sourceType      String   // GRN | OPENING_BALANCE | ADJUSTMENT
+  sourceType      String // GRN | OPENING_BALANCE | ADJUSTMENT
   sourceId        String?
   createdAt       DateTime @default(now())
 
@@ -468,29 +478,29 @@ enum GrnStatus {
 }
 
 model Grn {
-  id          String    @id @default(cuid())
-  kantinSlug  String
-  grnNumber   String
-  vendorId    String?
-  receivedAt  DateTime
-  invoiceRef  String?
-  isInformal  Boolean   @default(false) // cash-market buy, no formal invoice
-  notes       String?
-  status      GrnStatus @default(DRAFT)
+  id                String    @id @default(cuid())
+  kantinSlug        String
+  grnNumber         String
+  vendorId          String?
+  receivedAt        DateTime
+  invoiceRef        String?
+  isInformal        Boolean   @default(false) // cash-market buy, no formal invoice
+  notes             String?
+  status            GrnStatus @default(DRAFT)
   storageLocationId String?
   receivedById      String?
   challanPhotoUrl   String?
-  subtotal    Decimal   @default(0) @db.Decimal(14, 2)
-  taxTotal    Decimal   @default(0) @db.Decimal(14, 2)
-  grandTotal  Decimal   @default(0) @db.Decimal(14, 2)
-  createdById String
-  postedAt    DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  subtotal          Decimal   @default(0) @db.Decimal(14, 2)
+  taxTotal          Decimal   @default(0) @db.Decimal(14, 2)
+  grandTotal        Decimal   @default(0) @db.Decimal(14, 2)
+  createdById       String
+  postedAt          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  kantin    Kantin     @relation(fields: [kantinSlug], references: [slug])
-  vendor    Vendor?    @relation(fields: [vendorId], references: [id])
-  createdBy User       @relation("GrnCreatedBy", fields: [createdById], references: [id])
+  kantin    Kantin    @relation(fields: [kantinSlug], references: [slug])
+  vendor    Vendor?   @relation(fields: [vendorId], references: [id])
+  createdBy User      @relation("GrnCreatedBy", fields: [createdById], references: [id])
   lines     GrnLine[]
 
   @@unique([kantinSlug, grnNumber])
@@ -498,17 +508,17 @@ model Grn {
 }
 
 model GrnLine {
-  id            String  @id @default(cuid())
+  id            String    @id @default(cuid())
   grnId         String
   productId     String
   uomCode       String? // unit the receivedQty was entered in
-  qty           Decimal @db.Decimal(20, 6) // received qty (in uomCode)
-  qtyInStockUom Decimal @default(0) @db.Decimal(20, 6) // converted snapshot posted to ledger
-  rejectedQty   Decimal @default(0) @db.Decimal(20, 6) // refused at door, never enters stock
-  unitCost      Decimal @db.Decimal(14, 6) // per uomCode
-  lineTotal     Decimal @db.Decimal(14, 2)
-  taxRatePct    Decimal @default(0) @db.Decimal(6, 4)
-  taxAmount     Decimal @default(0) @db.Decimal(14, 2)
+  qty           Decimal   @db.Decimal(20, 6) // received qty (in uomCode)
+  qtyInStockUom Decimal   @default(0) @db.Decimal(20, 6) // converted snapshot posted to ledger
+  rejectedQty   Decimal   @default(0) @db.Decimal(20, 6) // refused at door, never enters stock
+  unitCost      Decimal   @db.Decimal(14, 6) // per uomCode
+  lineTotal     Decimal   @db.Decimal(14, 2)
+  taxRatePct    Decimal   @default(0) @db.Decimal(6, 4)
+  taxAmount     Decimal   @default(0) @db.Decimal(14, 2)
   batchNo       String?
   expiryDate    DateTime?
   notes         String?
@@ -533,30 +543,30 @@ enum StockMovementKind {
   ADJUSTMENT
   STOCK_TAKE
   OPENING_BALANCE
-  REVERSAL          // compensating entry that negates an earlier movement
-  PURCHASE_RETURN   // stock returned to vendor
-  PRODUCTION        // prep/sub-recipe output (+) and its ingredient consumption (-)
+  REVERSAL // compensating entry that negates an earlier movement
+  PURCHASE_RETURN // stock returned to vendor
+  PRODUCTION // prep/sub-recipe output (+) and its ingredient consumption (-)
 }
 
 model StockMovement {
-  id          String            @id @default(cuid())
-  kantinSlug  String
-  productId   String
-  kind        StockMovementKind
-  qty         Decimal           @db.Decimal(20, 6) // + = stock in, - = stock out; ALWAYS in product stock UoM
-  unitCost    Decimal?          @db.Decimal(14, 6)
-  valueDelta  Decimal?          @db.Decimal(14, 2) // qty * unitCost, signed
-  uomCode     String?           // informational; qty is already in stock UoM
-  refType     String?           // GRN | SALE_ITEMLINE | SALE_REVERSAL | STOCK_TAKE | WASTAGE | TRANSFER | ...
-  refId       String?
-  reversedById String?          // points at the movement this one reverses
-  recipeId    String?           // SALE traceability
-  recipeVersion Int?
+  id                String            @id @default(cuid())
+  kantinSlug        String
+  productId         String
+  kind              StockMovementKind
+  qty               Decimal           @db.Decimal(20, 6) // + = stock in, - = stock out; ALWAYS in product stock UoM
+  unitCost          Decimal?          @db.Decimal(14, 6)
+  valueDelta        Decimal?          @db.Decimal(14, 2) // qty * unitCost, signed
+  uomCode           String? // informational; qty is already in stock UoM
+  refType           String? // GRN | SALE_ITEMLINE | SALE_REVERSAL | STOCK_TAKE | WASTAGE | TRANSFER | ...
+  refId             String?
+  reversedById      String? // points at the movement this one reverses
+  recipeId          String? // SALE traceability
+  recipeVersion     Int?
   storageLocationId String?
-  notes       String?
-  occurredAt  DateTime          // business time
-  createdById String?
-  createdAt   DateTime          @default(now()) // insert time
+  notes             String?
+  occurredAt        DateTime // business time
+  createdById       String?
+  createdAt         DateTime          @default(now()) // insert time
 
   kantin          Kantin           @relation(fields: [kantinSlug], references: [slug])
   product         Product          @relation(fields: [productId], references: [id])
@@ -590,22 +600,22 @@ enum StockTakeKind {
 }
 
 model StockTake {
-  id          String          @id @default(cuid())
-  kantinSlug  String
-  takeNumber  String
-  type        StockTakeKind   @default(FULL)
-  frozenAt    DateTime?       // snapshot watermark for expectedQty
-  blindCount  Boolean         @default(false)
+  id                String          @id @default(cuid())
+  kantinSlug        String
+  takeNumber        String
+  type              StockTakeKind   @default(FULL)
+  frozenAt          DateTime? // snapshot watermark for expectedQty
+  blindCount        Boolean         @default(false)
   storageLocationId String?
-  startedAt   DateTime        @default(now())
-  submittedAt DateTime?
-  approvedAt  DateTime?
-  submittedById String?
-  approvedById  String?
-  rejectedReason String?
-  notes       String?
-  status      StockTakeStatus @default(IN_PROGRESS)
-  createdById String
+  startedAt         DateTime        @default(now())
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+  submittedById     String?
+  approvedById      String?
+  rejectedReason    String?
+  notes             String?
+  status            StockTakeStatus @default(IN_PROGRESS)
+  createdById       String
 
   kantin    Kantin          @relation(fields: [kantinSlug], references: [slug])
   createdBy User            @relation("StockTakeBy", fields: [createdById], references: [id])
@@ -616,18 +626,18 @@ model StockTake {
 }
 
 model StockTakeItem {
-  id               String  @id @default(cuid())
+  id               String   @id @default(cuid())
   stockTakeId      String
   productId        String
   countedUomCode   String?
-  expectedQty      Decimal @db.Decimal(20, 6) // frozen at frozenAt
+  expectedQty      Decimal  @db.Decimal(20, 6) // frozen at frozenAt
   countedQty       Decimal? @db.Decimal(20, 6) // BLANK by default — forces a real count
   variance         Decimal? @db.Decimal(20, 6)
   unitCostSnapshot Decimal? @db.Decimal(14, 6)
   varianceValue    Decimal? @db.Decimal(14, 2)
   reasonCode       String?
   reasonNote       String?
-  isFlagged        Boolean @default(false)
+  isFlagged        Boolean  @default(false)
   countedById      String?
   notes            String?
 
@@ -647,7 +657,7 @@ model AuditLog {
   actorId    String?
   actorRole  String?
   kantinSlug String?
-  action     String   // grn.posted, stocktake.approved, recipe.updated, user.created, ...
+  action     String // grn.posted, stocktake.approved, recipe.updated, user.created, ...
   entityType String?
   entityId   String?
   summary    String?

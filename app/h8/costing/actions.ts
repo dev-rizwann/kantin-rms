@@ -8,6 +8,7 @@ import { clientIp, requireAction } from "@/lib/server-auth"
 import { logAudit } from "@/lib/audit"
 import { normalizeRecipeTitle } from "@/lib/recipe-title"
 import { convert } from "@/lib/uom"
+import { calculateOilAllocation } from "@/lib/oil-allocation"
 
 const KANTIN = "h8"
 export interface ActionResult<T = unknown> { ok: boolean; error?: string; data?: T }
@@ -169,8 +170,11 @@ export async function saveRecipe(input: RecipeSaveInput): Promise<ActionResult<{
 }
 
 const oilSchema = z.object({
-  recipeId: z.string().min(1), unitsSold: z.number().int().nonnegative(), friesGrams: z.number().nonnegative(),
-  breadedGrams: z.number().nonnegative(), soakFactor: z.number().positive(), cost: z.number().nonnegative(),
+  settingId: z.string().min(1),
+  unitsSold: z.number().int().nonnegative(),
+  friesGrams: z.number().nonnegative(),
+  breadedGrams: z.number().nonnegative(),
+  directOilMl: z.number().nonnegative(),
 })
 
 export async function updateOilAllocation(input: z.input<typeof oilSchema>): Promise<ActionResult> {
@@ -178,31 +182,122 @@ export async function updateOilAllocation(input: z.input<typeof oilSchema>): Pro
     const user = await requireAction("recipe.edit", KANTIN)
     const data = oilSchema.parse(input)
     await prisma.$transaction(async (tx) => {
-      const recipe = await tx.recipe.findFirst({ where: { id: data.recipeId, kantinSlug: KANTIN }, include: { activeVersion: { include: { lines: { orderBy: { sortOrder: "asc" } } } }, oilAllocation: true } })
-      if (!recipe?.activeVersion) throw new Error("Active recipe not found.")
-      const old = recipe.activeVersion
-      const last = await tx.recipeVersion.aggregate({ where: { recipeId: recipe.id }, _max: { version: true } })
+      const edited = await tx.oilAllocationSetting.findFirst({ where: { id: data.settingId, kantinSlug: KANTIN } })
+      if (!edited) throw new Error("Oil consumer not found.")
+      await tx.oilAllocationSetting.update({
+        where: { id: edited.id },
+        data: {
+          unitsSold: data.unitsSold,
+          friesGrams: data.friesGrams,
+          breadedGrams: data.breadedGrams,
+          directOilMl: data.directOilMl,
+        },
+      })
+
+      const settings = await tx.oilAllocationSetting.findMany({
+        where: { kantinSlug: KANTIN },
+        include: { recipe: { include: { activeVersion: { include: { lines: { orderBy: { sortOrder: "asc" } } } } } } },
+        orderBy: { name: "asc" },
+      })
+      const source = settings[0]
+      const totalOilSpend = source?.sourceTotalOilSpend == null ? 480000 : Number(source.sourceTotalOilSpend)
+      const directOilUnitCost = source == null ? 0.59375 : Number(source.directOilUnitCost)
+      const breadedFactor = source == null ? 1.25 : Number(source.soakFactor)
+      const model = calculateOilAllocation(
+        settings.map((setting) => ({
+          id: setting.id,
+          unitsSold: setting.unitsSold,
+          friesGrams: Number(setting.friesGrams),
+          breadedGrams: Number(setting.breadedGrams),
+          directOilMl: Number(setting.directOilMl),
+          directCostInRecipe: setting.directCostInRecipe,
+        })),
+        { totalOilSpend, directOilUnitCost, breadedFactor },
+      )
+      if (model.directOilCost > totalOilSpend) throw new Error("Direct cooking oil exceeds the total oil pool.")
+      if (model.fryerPool > 0 && model.weightedFryerGrams <= 0) throw new Error("Add at least one fryer load before allocating the remaining oil pool.")
+
+      const resultById = new Map(model.rows.map((row) => [row.id, row]))
       const now = new Date()
-      await tx.recipeVersion.update({ where: { id: old.id }, data: { effectiveTo: now } })
-      let hasOil = false
-      const copied = old.lines.map((line) => {
-        const isOil = line.kind === "COST_ADJUSTMENT" && /oil/i.test(line.label ?? "")
-        if (isOil) hasOil = true
-        return { kind: line.kind, productId: line.productId, label: line.label, quantity: line.quantity, uomCode: line.uomCode, fixedUnitCost: isOil ? new Prisma.Decimal(data.cost) : line.fixedUnitCost, sortOrder: line.sortOrder, notes: line.notes }
+      for (const setting of settings) {
+        const result = resultById.get(setting.id)!
+        await tx.oilAllocationSetting.update({
+          where: { id: setting.id },
+          data: { allocatedCostPerUnit: new Prisma.Decimal(result.recipeAdjustmentPerUnit) },
+        })
+
+        const recipe = setting.recipe
+        const old = recipe?.activeVersion
+        if (!recipe || !old) continue
+        const oilLines = old.lines.filter((line) => line.kind === "COST_ADJUSTMENT" && /oil/i.test(line.label ?? ""))
+        const existingAdjustment = oilLines.reduce(
+          (sum, line) => sum + Number(line.quantity) * Number(line.fixedUnitCost ?? 0),
+          0,
+        )
+        if (Math.abs(existingAdjustment - result.recipeAdjustmentPerUnit) < 0.000001) continue
+
+        const copied = old.lines
+          .filter((line) => !(line.kind === "COST_ADJUSTMENT" && /oil/i.test(line.label ?? "")))
+          .map((line, sortOrder) => ({
+            kind: line.kind,
+            productId: line.productId,
+            label: line.label,
+            quantity: line.quantity,
+            uomCode: line.uomCode,
+            fixedUnitCost: line.fixedUnitCost,
+            sortOrder,
+            notes: line.notes,
+          }))
+        if (result.recipeAdjustmentPerUnit > 0.000001) {
+          copied.push({
+            kind: "COST_ADJUSTMENT",
+            productId: null,
+            label: "Oil allocation (calibrated)",
+            quantity: new Prisma.Decimal(1),
+            uomCode: null,
+            fixedUnitCost: new Prisma.Decimal(result.recipeAdjustmentPerUnit),
+            sortOrder: copied.length,
+            notes: "Six-month oil pool allocation",
+          })
+        }
+        const last = await tx.recipeVersion.aggregate({ where: { recipeId: recipe.id }, _max: { version: true } })
+        await tx.recipeVersion.update({ where: { id: old.id }, data: { effectiveTo: now } })
+        const version = await tx.recipeVersion.create({
+          data: {
+            recipeId: recipe.id,
+            version: (last._max.version ?? old.version) + 1,
+            outputQty: old.outputQty,
+            outputUomCode: old.outputUomCode,
+            referenceSellPrice: old.referenceSellPrice,
+            targetFoodCostPct: old.targetFoodCostPct,
+            effectiveFrom: now,
+            notes: old.notes,
+            createdById: user.id,
+            lines: { create: copied },
+          },
+        })
+        await tx.recipe.update({ where: { id: recipe.id }, data: { activeVersionId: version.id } })
+      }
+
+      await logAudit(tx, {
+        actorId: user.id,
+        actorRole: user.role,
+        kantinSlug: KANTIN,
+        action: "recipe.oil_model_recalibrated",
+        entityType: "OilAllocationSetting",
+        entityId: edited.id,
+        summary: `Recalibrated oil model after updating ${edited.name}`,
+        metadata: {
+          ...data,
+          totalOilSpend,
+          directOilCost: model.directOilCost,
+          fryerPool: model.fryerPool,
+          friesCostPerGram: model.friesCostPerGram,
+          breadedCostPerGram: model.breadedCostPerGram,
+          variance: model.variance,
+        },
+        ip: clientIp(),
       })
-      if (!hasOil) copied.push({ kind: "COST_ADJUSTMENT", productId: null, label: "Frying oil (allocated)", quantity: new Prisma.Decimal(1), uomCode: null, fixedUnitCost: new Prisma.Decimal(data.cost), sortOrder: copied.length, notes: null })
-      const version = await tx.recipeVersion.create({ data: {
-        recipeId: recipe.id, version: (last._max.version ?? old.version) + 1, outputQty: old.outputQty, outputUomCode: old.outputUomCode,
-        referenceSellPrice: old.referenceSellPrice, targetFoodCostPct: old.targetFoodCostPct, effectiveFrom: now,
-        notes: old.notes, createdById: user.id, lines: { create: copied },
-      } })
-      await tx.recipe.update({ where: { id: recipe.id }, data: { activeVersionId: version.id } })
-      await tx.oilAllocationSetting.upsert({
-        where: { recipeId: recipe.id },
-        update: { unitsSold: data.unitsSold, friesGrams: data.friesGrams, breadedGrams: data.breadedGrams, soakFactor: data.soakFactor, allocatedCostPerUnit: data.cost },
-        create: { recipeId: recipe.id, unitsSold: data.unitsSold, friesGrams: data.friesGrams, breadedGrams: data.breadedGrams, soakFactor: data.soakFactor, allocatedCostPerUnit: data.cost },
-      })
-      await logAudit(tx, { actorId: user.id, actorRole: user.role, kantinSlug: KANTIN, action: "recipe.oil_updated", entityType: "Recipe", entityId: recipe.id, summary: `Updated ${recipe.name} oil allocation to Rs ${data.cost.toFixed(2)}/unit`, metadata: data, ip: clientIp() })
     })
     revalidateCosting()
     return { ok: true }

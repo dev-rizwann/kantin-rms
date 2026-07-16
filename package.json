@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx lib/uom.test.ts && tsx lib/recipe-cost.test.ts && tsx lib/recipe-seed.test.ts",
+    "test": "tsx lib/uom.test.ts && tsx lib/recipe-cost.test.ts && tsx lib/recipe-seed.test.ts && tsx lib/oil-allocation.test.ts",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",

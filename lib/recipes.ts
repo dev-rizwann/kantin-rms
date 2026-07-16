@@ -4,6 +4,7 @@ import { prisma } from "./prisma"
 import { toNum } from "./money"
 import { costRecipe, explodeRecipe, type CostingGraph, type CostingProduct, type CostingRecipe } from "./recipe-cost"
 import { normalizeRecipeTitle } from "./recipe-title"
+import { calculateOilAllocation } from "./oil-allocation"
 
 export interface LoadedCosting {
   graph: CostingGraph
@@ -172,7 +173,15 @@ export interface CostingDashboardRow {
 }
 
 export async function getCostingDashboard(kantinSlug: string) {
-  const [loaded, pos] = await Promise.all([loadCosting(kantinSlug), getPosCatalog(kantinSlug)])
+  const [loaded, pos, oilSettings] = await Promise.all([
+    loadCosting(kantinSlug),
+    getPosCatalog(kantinSlug),
+    prisma.oilAllocationSetting.findMany({
+      where: { kantinSlug },
+      include: { recipe: true },
+      orderBy: [{ recipeId: "desc" }, { name: "asc" }],
+    }),
+  ])
   const matched = matchRecipeRows(loaded, pos)
   const rows: CostingDashboardRow[] = matched.map(({ recipe, primaryRow }) => {
     const cost = costRecipe(recipe.id, loaded.graph)
@@ -189,6 +198,23 @@ export async function getCostingDashboard(kantinSlug: string) {
   const costedProductIds = new Set(loaded.dbRecipes.flatMap((r) => r.activeVersion?.lines.map((l) => l.productId).filter(Boolean) ?? []))
   const ingredients = loaded.dbProducts.filter((p) => p.kind !== "SEMI_FINISHED" && p.isCostingActive)
   const pricedFoodCosts = rows.flatMap((r) => r.foodCostPct == null ? [] : [r.foodCostPct])
+  const source = oilSettings[0]
+  const oilModel = calculateOilAllocation(
+    oilSettings.map((setting) => ({
+      id: setting.id,
+      unitsSold: setting.unitsSold,
+      friesGrams: toNum(setting.friesGrams),
+      breadedGrams: toNum(setting.breadedGrams),
+      directOilMl: toNum(setting.directOilMl),
+      directCostInRecipe: setting.directCostInRecipe,
+    })),
+    {
+      totalOilSpend: source?.sourceTotalOilSpend == null ? 480000 : toNum(source.sourceTotalOilSpend),
+      directOilUnitCost: source == null ? 0.59375 : toNum(source.directOilUnitCost),
+      breadedFactor: source == null ? 1.25 : toNum(source.soakFactor),
+    },
+  )
+  const oilById = new Map(oilModel.rows.map((row) => [row.id, row]))
   return {
     rows,
     kpis: {
@@ -202,12 +228,38 @@ export async function getCostingDashboard(kantinSlug: string) {
         ? pricedFoodCosts.reduce((sum, value) => sum + value, 0) / pricedFoodCosts.length
         : null,
     },
-    oil: loaded.dbRecipes.filter((r) => r.oilAllocation).map((r) => ({
-      recipeId: r.id, name: r.name, unitsSold: r.oilAllocation!.unitsSold,
-      friesGrams: toNum(r.oilAllocation!.friesGrams), breadedGrams: toNum(r.oilAllocation!.breadedGrams),
-      soakFactor: toNum(r.oilAllocation!.soakFactor), cost: toNum(r.oilAllocation!.allocatedCostPerUnit),
-      sourceTotalOilSpend: r.oilAllocation!.sourceTotalOilSpend == null ? null : toNum(r.oilAllocation!.sourceTotalOilSpend),
-    })),
+    oil: oilSettings.map((setting) => {
+      const calculated = oilById.get(setting.id)!
+      return {
+        settingId: setting.id,
+        recipeId: setting.recipeId,
+        name: setting.name,
+        linked: setting.recipeId != null,
+        unitsSold: setting.unitsSold,
+        friesGrams: toNum(setting.friesGrams),
+        breadedGrams: toNum(setting.breadedGrams),
+        directOilMl: toNum(setting.directOilMl),
+        directCostInRecipe: setting.directCostInRecipe,
+        fryerCost: calculated.fryerCostPerUnit,
+        directCost: calculated.directCostPerUnit,
+        totalCost: calculated.totalOilCostPerUnit,
+        periodCost: calculated.periodOilCost,
+        notes: setting.notes,
+      }
+    }),
+    oilSummary: {
+      totalOilSpend: oilModel.totalOilSpend,
+      directOilUnitCost: oilModel.directOilUnitCost,
+      breadedFactor: oilModel.breadedFactor,
+      directOilCost: oilModel.directOilCost,
+      fryerPool: oilModel.fryerPool,
+      friesCostPerGram: oilModel.friesCostPerGram,
+      breadedCostPerGram: oilModel.breadedCostPerGram,
+      allocatedTotal: oilModel.allocatedTotal,
+      variance: oilModel.variance,
+      sourceStart: source?.sourceStart?.toISOString() ?? null,
+      sourceEnd: source?.sourceEnd?.toISOString() ?? null,
+    },
   }
 }
 

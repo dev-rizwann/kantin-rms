@@ -150,14 +150,31 @@ export const RECIPE_ALIASES: Record<string, { title: string; posItemId?: number;
   "Chicken Chowmein (per plate)": [{ title: "Chicken Chow Mein", posItemId: 111, primary: true }, { title: "Chicken Cchowmen", posItemId: 809 }],
 }
 
-export const OIL_ALLOCATIONS: Record<string, { unitsSold: number; friesGrams: number; breadedGrams: number; cost: number; notes: string }> = {
+export const OIL_ALLOCATIONS: Record<string, { unitsSold: number; friesGrams: number; breadedGrams: number; directOilMl?: number; directCostInRecipe?: boolean; cost: number; notes: string }> = {
+  "Chicken Sandwich": { unitsSold: 307, friesGrams: 0, breadedGrams: 0, directOilMl: 3, cost: 0, notes: "Estimated 3ml cooking oil; adjust after kitchen test" },
+  "Club Sandwich": { unitsSold: 208, friesGrams: 0, breadedGrams: 0, directOilMl: 4, cost: 0, notes: "Estimated 4ml cooking oil; adjust after kitchen test" },
   "Masala Fries": { unitsSold: 3270, friesGrams: 147, breadedGrams: 0, cost: 12.678580027786504, notes: "110g cooked / 0.75" },
   "Nuggets with Fries": { unitsSold: 5117, friesGrams: 147, breadedGrams: 76, cost: 20.872220181798188, notes: "Fries + 4×19g nuggets; includes Foodpanda" },
   "Tender Pops with Fries": { unitsSold: 4567, friesGrams: 147, breadedGrams: 150, cost: 28.85023822649378, notes: "Fries + historical 6×25g tender fry load; re-weigh" },
   "Loaded Fries": { unitsSold: 4868, friesGrams: 333, breadedGrams: 0, cost: 28.720864960904116, notes: "250g cooked / 0.75; chicken grilled" },
   "Zinger Burger": { unitsSold: 794, friesGrams: 0, breadedGrams: 117, cost: 12.613893394991672, notes: "Fried fillet ~117g" },
   "Patty Burger": { unitsSold: 608, friesGrams: 0, breadedGrams: 83, cost: 8.948317536618026, notes: "Fried patty ~83g" },
+  "Chicken Roll Paratha": { unitsSold: 497, friesGrams: 0, breadedGrams: 0, directOilMl: 15, directCostInRecipe: true, cost: 0, notes: "15ml direct oil already exists in the recipe" },
+  "Shawarma": { unitsSold: 1077, friesGrams: 0, breadedGrams: 0, directOilMl: 4, cost: 0, notes: "Estimated 4ml cooking oil; adjust after kitchen test" },
+  "Pizza (whole 8-slice)": { unitsSold: 316, friesGrams: 0, breadedGrams: 0, directOilMl: 10, directCostInRecipe: true, cost: 0, notes: "10ml direct oil per whole-pizza equivalent" },
+  "Chicken Chowmein (per plate)": { unitsSold: 1305, friesGrams: 0, breadedGrams: 0, directOilMl: 9, directCostInRecipe: true, cost: 0, notes: "9ml direct oil already exists in the recipe" },
 }
+
+export const UNLINKED_OIL_CONSUMERS = [
+  { name: "Garlic Mayo Fries", unitsSold: 2313, friesGrams: 147, breadedGrams: 0, directOilMl: 0, notes: "POS consumer; recipe still needs linking." },
+  { name: "Plain Fries", unitsSold: 1007, friesGrams: 147, breadedGrams: 0, directOilMl: 0, notes: "POS consumer; recipe still needs linking." },
+  { name: "Peri Peri chips", unitsSold: 76, friesGrams: 147, breadedGrams: 0, directOilMl: 0, notes: "Treated as a fried potato serving." },
+  { name: "Fries + Nuggets + Tender Combo", unitsSold: 64, friesGrams: 147, breadedGrams: 122, directOilMl: 0, notes: "Estimated mixed fryer load from the POS combo." },
+  { name: "6 Piece Nuggets", unitsSold: 199, friesGrams: 0, breadedGrams: 114, directOilMl: 0, notes: "Six nuggets at approximately 19g each." },
+  { name: "Fried Rice with Manchurian", unitsSold: 225, friesGrams: 0, breadedGrams: 80, directOilMl: 12, notes: "Estimated 12ml wok oil and 80g fried chicken." },
+  { name: "Chicken Manchurian", unitsSold: 8, friesGrams: 0, breadedGrams: 100, directOilMl: 0, notes: "Estimated 100g fried breaded chicken." },
+  { name: "Pasta", unitsSold: 551, friesGrams: 0, breadedGrams: 0, directOilMl: 8, notes: "Estimated 8ml sauté oil per serving." },
+] as const
 
 const PACKAGING = new Set(["Ketchup Sachet", "Tissue", "Burger Box", "Fries Bucket", "Tray", "Pizza Box", "Paper Bag", "Stick", "Fork", "Butter Paper"])
 const PROTEIN = new Set(["Chicken Boneless", "Burger Patty", "Zinger Fillet", "Nugget", "Tender (popcorn)", "Egg"])
