@@ -82,6 +82,7 @@ model Kantin {
   recipes          Recipe[]
   recipeAliases    RecipeAlias[]
   oilAllocations   OilAllocationSetting[]
+  fryingOilRates   FryingOilRate[]
 }
 
 // =========================================================================
@@ -418,6 +419,20 @@ model OilAllocationSetting {
 
   @@unique([kantinSlug, name])
   @@index([kantinSlug])
+}
+
+/// Current flat oil cost per gram of food entering the deep fryer (no
+/// potato/breaded split — one rate for all fried items, owner decision).
+/// Recipes store the fried input weight; the rate is copied into the active
+/// recipe line so costing remains automatic and auditable.
+model FryingOilRate {
+  id          String   @id @default(cuid())
+  kantinSlug  String   @unique
+  costPerGram Decimal  @db.Decimal(14, 6)
+  notes       String?
+  updatedAt   DateTime @updatedAt
+
+  kantin Kantin @relation(fields: [kantinSlug], references: [slug])
 }
 
 /// Audit trail of weighted-average cost recomputes. The ONE legitimately

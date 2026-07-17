@@ -3,5 +3,5 @@ import { requireAction } from "@/lib/server-auth"
 
 export default async function CostingLayout({ children }: { children: React.ReactNode }) {
   await requireAction("report.view_cost", "h8")
-  return <><CostingNav />{children}</>
+  return <div className="mx-auto w-full max-w-[1060px]"><CostingNav />{children}</div>
 }

@@ -12,7 +12,7 @@ import {
   ingredientKind,
 } from "./recipe-seed-data"
 import { normalizeRecipeTitle } from "../lib/recipe-title"
-import { calculateOilAllocation } from "../lib/oil-allocation"
+import { ALL_FRYING_OIL_LABELS, DEFAULT_FRYING_OIL_RATE, FRYING_OIL_LABEL } from "../lib/frying-oil"
 
 const prisma = new PrismaClient()
 const KANTIN = "h8"
@@ -162,47 +162,53 @@ async function seedWorkbookCosting() {
     })
   }
 
+  await prisma.fryingOilRate.upsert({
+    where: { kantinSlug: KANTIN },
+    update: {},
+    create: { kantinSlug: KANTIN, costPerGram: DEFAULT_FRYING_OIL_RATE, notes: "Flat oil cost per gram of food entering the fryer (Rs 480k / 5.26 t, Dec-2025..Jul-2026)." },
+  })
+
   const oilSettings = await prisma.oilAllocationSetting.findMany({
     where: { kantinSlug: KANTIN },
     include: { recipe: { include: { activeVersion: { include: { lines: true } } } } },
   })
-  const oilModel = calculateOilAllocation(
-    oilSettings.map((setting) => ({
-      id: setting.id,
-      unitsSold: setting.unitsSold,
-      friesGrams: Number(setting.friesGrams),
-      breadedGrams: Number(setting.breadedGrams),
-      directOilMl: Number(setting.directOilMl),
-      directCostInRecipe: setting.directCostInRecipe,
-    })),
-    { totalOilSpend: 480000, directOilUnitCost: 0.59375, breadedFactor: 1.25 },
-  )
-  const oilById = new Map(oilModel.rows.map((row) => [row.id, row]))
+  const oilProduct = await prisma.product.findFirst({ where: { kantinSlug: KANTIN, name: "Cooking Oil" } })
   for (const setting of oilSettings) {
-    const result = oilById.get(setting.id)!
-    await prisma.oilAllocationSetting.update({
-      where: { id: setting.id },
-      data: { allocatedCostPerUnit: result.recipeAdjustmentPerUnit },
-    })
     const version = setting.recipe?.activeVersion
     if (!version) continue
-    const oilLine = version.lines.find((line) => line.kind === "COST_ADJUSTMENT" && /oil/i.test(line.label ?? ""))
-    if (oilLine) {
-      await prisma.recipeLine.update({
-        where: { id: oilLine.id },
-        data: {
-          label: "Oil allocation (calibrated)", quantity: 1,
-          fixedUnitCost: result.recipeAdjustmentPerUnit, notes: "Six-month oil pool allocation",
-        },
-      })
-    } else if (result.recipeAdjustmentPerUnit > 0) {
+    await prisma.recipeLine.deleteMany({
+      where: {
+        recipeVersionId: version.id,
+        kind: "COST_ADJUSTMENT",
+        label: { in: [...ALL_FRYING_OIL_LABELS] },
+      },
+    })
+    const fryerGrams = Number(setting.friesGrams) + Number(setting.breadedGrams)
+    if (fryerGrams > 0) {
+      const sortOrder = version.lines.filter((line) => !/oil/i.test(line.label ?? "")).length
       await prisma.recipeLine.create({
         data: {
-          recipeVersionId: version.id, kind: "COST_ADJUSTMENT", label: "Oil allocation (calibrated)",
-          quantity: 1, fixedUnitCost: result.recipeAdjustmentPerUnit,
-          sortOrder: version.lines.length, notes: "Six-month oil pool allocation",
+          recipeVersionId: version.id, kind: "COST_ADJUSTMENT", label: FRYING_OIL_LABEL,
+          quantity: fryerGrams, fixedUnitCost: DEFAULT_FRYING_OIL_RATE,
+          sortOrder, notes: "Automatic oil cost: total fryer-input grams × flat rate.",
         },
       })
+    }
+    // Non-fried recipes with a small direct-oil use get a REAL Cooking Oil
+    // ingredient line (ml) instead of any automatic allocation.
+    const directOilMl = Number(setting.directOilMl)
+    if (directOilMl > 0 && !setting.directCostInRecipe && oilProduct) {
+      const alreadyHasOil = version.lines.some((line) => line.productId === oilProduct.id)
+      if (!alreadyHasOil) {
+        await prisma.recipeLine.create({
+          data: {
+            recipeVersionId: version.id, kind: "PRODUCT", productId: oilProduct.id,
+            quantity: directOilMl, uomCode: "ML",
+            sortOrder: version.lines.length + 1,
+            notes: "Direct cooking oil (converted from the removed automatic allocation).",
+          },
+        })
+      }
     }
   }
 

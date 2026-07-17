@@ -8,10 +8,53 @@ import { clientIp, requireAction } from "@/lib/server-auth"
 import { logAudit } from "@/lib/audit"
 import { normalizeRecipeTitle } from "@/lib/recipe-title"
 import { convert } from "@/lib/uom"
-import { calculateOilAllocation } from "@/lib/oil-allocation"
+import { ALL_FRYING_OIL_LABELS, DEFAULT_FRYING_OIL_RATE, FRYING_OIL_LABEL } from "@/lib/frying-oil"
 
 const KANTIN = "h8"
 export interface ActionResult<T = unknown> { ok: boolean; error?: string; data?: T }
+
+const newIngredientSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  kind: z.enum(["RAW_MATERIAL", "PACKAGING"]),
+  category: z.string().trim().min(1),
+  uomCode: z.string().min(1),
+  packPrice: z.number().positive(),
+  packQty: z.number().positive(),
+  note: z.string().trim().max(1000).optional(),
+  estimated: z.boolean().default(false),
+})
+
+export async function createCostingIngredient(input: z.input<typeof newIngredientSchema>): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await requireAction("product.override", KANTIN)
+    const data = newIngredientSchema.parse(input)
+    const uom = await prisma.unitOfMeasure.findFirst({ where: { code: data.uomCode, isActive: true } })
+    if (!uom) throw new Error("Unknown unit of measure.")
+    const unitCost = new Prisma.Decimal(data.packPrice).div(data.packQty)
+    const id = await prisma.$transaction(async (tx) => {
+      const clash = await tx.product.findFirst({ where: { kantinSlug: KANTIN, name: { equals: data.name, mode: "insensitive" } } })
+      if (clash) throw new Error(`An ingredient named "${clash.name}" already exists.`)
+      const product = await tx.product.create({ data: {
+        kantinSlug: KANTIN, name: data.name, kind: data.kind, unit: legacyUnit(data.uomCode), stockUomCode: data.uomCode,
+        costingCategory: data.category, standardPackPrice: data.packPrice, standardPackQty: data.packQty,
+        costingNote: data.note || null, notes: data.note || null, costIsEstimated: data.estimated,
+        isCostingActive: true, avgCost: unitCost, lastPurchaseCost: unitCost,
+      } })
+      await tx.productCostHistory.create({ data: {
+        productId: product.id, effectiveAt: new Date(), oldAvgCost: null, newAvgCost: unitCost,
+        qtyOnHandAtCalc: 0, inboundQty: 0, inboundUnitCost: unitCost, sourceType: "COST_OVERRIDE", sourceId: null,
+      } })
+      await logAudit(tx, {
+        actorId: user.id, actorRole: user.role, kantinSlug: KANTIN, action: "product.created",
+        entityType: "Product", entityId: product.id, summary: `Created costing ingredient ${data.name} at ${unitCost.toFixed(6)} per ${data.uomCode}`,
+        metadata: { kind: data.kind, packPrice: data.packPrice, packQty: data.packQty, estimated: data.estimated }, ip: clientIp(),
+      })
+      return product.id
+    })
+    revalidateCosting()
+    return { ok: true, data: { id } }
+  } catch (e) { return { ok: false, error: errMsg(e) } }
+}
 
 const ingredientSchema = z.object({
   id: z.string().min(1),
@@ -63,6 +106,7 @@ export async function saveCostingIngredient(input: z.input<typeof ingredientSche
 const recipeLineSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("PRODUCT"), productId: z.string().min(1), quantity: z.number().positive(), uomCode: z.string().min(1), notes: z.string().max(500).optional() }),
   z.object({ kind: z.literal("COST_ADJUSTMENT"), label: z.string().trim().min(1), quantity: z.number().positive().default(1), fixedUnitCost: z.number().nonnegative(), notes: z.string().max(500).optional() }),
+  z.object({ kind: z.literal("FRYING_OIL"), quantity: z.number().positive(), notes: z.string().max(500).optional() }),
 ])
 const aliasSchema = z.object({ title: z.string().trim().min(1), posItemId: z.string().regex(/^\d+$/).optional().or(z.literal("")), isPrimary: z.boolean().default(false) })
 const recipeSchema = z.object({
@@ -89,6 +133,8 @@ export async function saveRecipe(input: RecipeSaveInput): Promise<ActionResult<{
     if (normalizedAliases.filter((a) => a.isPrimary).length > 1) throw new Error("Only one POS alias can be primary.")
 
     const id = await prisma.$transaction(async (tx) => {
+      const fryingRateRow = await tx.fryingOilRate.findUnique({ where: { kantinSlug: KANTIN } })
+      const fryingRate = fryingRateRow ? Number(fryingRateRow.costPerGram) : DEFAULT_FRYING_OIL_RATE
       const productIds = data.lines.filter((l): l is Extract<typeof l, { kind: "PRODUCT" }> => l.kind === "PRODUCT").map((l) => l.productId)
       const foundProducts = await tx.product.findMany({ where: { id: { in: productIds }, kantinSlug: KANTIN, isActive: true }, include: { productUoms: { where: { isActive: true } } } })
       if (foundProducts.length !== new Set(productIds).size) throw new Error("One or more recipe products are invalid.")
@@ -146,9 +192,22 @@ export async function saveRecipe(input: RecipeSaveInput): Promise<ActionResult<{
         recipeId: recipe.id, version: (last._max.version ?? 0) + 1, outputQty: data.outputQty, outputUomCode: data.outputUomCode,
         referenceSellPrice: data.referenceSellPrice ?? null, targetFoodCostPct: data.targetFoodCostPct,
         effectiveFrom: now, notes: data.notes || null, createdById: user.id,
-        lines: { create: data.lines.map((line, sortOrder) => line.kind === "PRODUCT"
-          ? { kind: "PRODUCT", productId: line.productId, quantity: line.quantity, uomCode: line.uomCode, sortOrder, notes: line.notes || null }
-          : { kind: "COST_ADJUSTMENT", label: line.label, quantity: line.quantity, fixedUnitCost: line.fixedUnitCost, sortOrder, notes: line.notes || null }) },
+        lines: { create: data.lines.map((line, sortOrder) => {
+          if (line.kind === "PRODUCT") {
+            return { kind: "PRODUCT" as const, productId: line.productId, quantity: line.quantity, uomCode: line.uomCode, sortOrder, notes: line.notes || null }
+          }
+          if (line.kind === "FRYING_OIL") {
+            return {
+              kind: "COST_ADJUSTMENT" as const,
+              label: FRYING_OIL_LABEL,
+              quantity: line.quantity,
+              fixedUnitCost: fryingRate,
+              sortOrder,
+              notes: line.notes || "Automatic oil cost: total fryer-input grams × flat rate.",
+            }
+          }
+          return { kind: "COST_ADJUSTMENT" as const, label: line.label, quantity: line.quantity, fixedUnitCost: line.fixedUnitCost, sortOrder, notes: line.notes || null }
+        }) },
       } })
       await tx.recipe.update({ where: { id: recipe.id }, data: { activeVersionId: version.id } })
 
@@ -169,133 +228,42 @@ export async function saveRecipe(input: RecipeSaveInput): Promise<ActionResult<{
   } catch (e) { return { ok: false, error: errMsg(e) } }
 }
 
-const oilSchema = z.object({
-  settingId: z.string().min(1),
-  unitsSold: z.number().int().nonnegative(),
-  friesGrams: z.number().nonnegative(),
-  breadedGrams: z.number().nonnegative(),
-  directOilMl: z.number().nonnegative(),
+const fryingRateSchema = z.object({
+  rate: z.number().positive().max(10),
 })
 
-export async function updateOilAllocation(input: z.input<typeof oilSchema>): Promise<ActionResult> {
+export async function updateFryingOilRate(input: z.input<typeof fryingRateSchema>): Promise<ActionResult> {
   try {
     const user = await requireAction("recipe.edit", KANTIN)
-    const data = oilSchema.parse(input)
+    const data = fryingRateSchema.parse(input)
     await prisma.$transaction(async (tx) => {
-      const edited = await tx.oilAllocationSetting.findFirst({ where: { id: data.settingId, kantinSlug: KANTIN } })
-      if (!edited) throw new Error("Oil consumer not found.")
-      await tx.oilAllocationSetting.update({
-        where: { id: edited.id },
-        data: {
-          unitsSold: data.unitsSold,
-          friesGrams: data.friesGrams,
-          breadedGrams: data.breadedGrams,
-          directOilMl: data.directOilMl,
+      await tx.fryingOilRate.upsert({
+        where: { kantinSlug: KANTIN },
+        update: { costPerGram: data.rate },
+        create: {
+          kantinSlug: KANTIN,
+          costPerGram: data.rate,
+          notes: "Flat oil cost per gram of food entering the fryer.",
         },
       })
-
-      const settings = await tx.oilAllocationSetting.findMany({
-        where: { kantinSlug: KANTIN },
-        include: { recipe: { include: { activeVersion: { include: { lines: { orderBy: { sortOrder: "asc" } } } } } } },
-        orderBy: { name: "asc" },
+      await tx.recipeLine.updateMany({
+        where: {
+          kind: "COST_ADJUSTMENT",
+          label: { in: [...ALL_FRYING_OIL_LABELS] },
+          recipeVersion: { activeFor: { kantinSlug: KANTIN } },
+        },
+        data: { fixedUnitCost: data.rate },
       })
-      const source = settings[0]
-      const totalOilSpend = source?.sourceTotalOilSpend == null ? 480000 : Number(source.sourceTotalOilSpend)
-      const directOilUnitCost = source == null ? 0.59375 : Number(source.directOilUnitCost)
-      const breadedFactor = source == null ? 1.25 : Number(source.soakFactor)
-      const model = calculateOilAllocation(
-        settings.map((setting) => ({
-          id: setting.id,
-          unitsSold: setting.unitsSold,
-          friesGrams: Number(setting.friesGrams),
-          breadedGrams: Number(setting.breadedGrams),
-          directOilMl: Number(setting.directOilMl),
-          directCostInRecipe: setting.directCostInRecipe,
-        })),
-        { totalOilSpend, directOilUnitCost, breadedFactor },
-      )
-      if (model.directOilCost > totalOilSpend) throw new Error("Direct cooking oil exceeds the total oil pool.")
-      if (model.fryerPool > 0 && model.weightedFryerGrams <= 0) throw new Error("Add at least one fryer load before allocating the remaining oil pool.")
-
-      const resultById = new Map(model.rows.map((row) => [row.id, row]))
-      const now = new Date()
-      for (const setting of settings) {
-        const result = resultById.get(setting.id)!
-        await tx.oilAllocationSetting.update({
-          where: { id: setting.id },
-          data: { allocatedCostPerUnit: new Prisma.Decimal(result.recipeAdjustmentPerUnit) },
-        })
-
-        const recipe = setting.recipe
-        const old = recipe?.activeVersion
-        if (!recipe || !old) continue
-        const oilLines = old.lines.filter((line) => line.kind === "COST_ADJUSTMENT" && /oil/i.test(line.label ?? ""))
-        const existingAdjustment = oilLines.reduce(
-          (sum, line) => sum + Number(line.quantity) * Number(line.fixedUnitCost ?? 0),
-          0,
-        )
-        if (Math.abs(existingAdjustment - result.recipeAdjustmentPerUnit) < 0.000001) continue
-
-        const copied = old.lines
-          .filter((line) => !(line.kind === "COST_ADJUSTMENT" && /oil/i.test(line.label ?? "")))
-          .map((line, sortOrder) => ({
-            kind: line.kind,
-            productId: line.productId,
-            label: line.label,
-            quantity: line.quantity,
-            uomCode: line.uomCode,
-            fixedUnitCost: line.fixedUnitCost,
-            sortOrder,
-            notes: line.notes,
-          }))
-        if (result.recipeAdjustmentPerUnit > 0.000001) {
-          copied.push({
-            kind: "COST_ADJUSTMENT",
-            productId: null,
-            label: "Oil allocation (calibrated)",
-            quantity: new Prisma.Decimal(1),
-            uomCode: null,
-            fixedUnitCost: new Prisma.Decimal(result.recipeAdjustmentPerUnit),
-            sortOrder: copied.length,
-            notes: "Six-month oil pool allocation",
-          })
-        }
-        const last = await tx.recipeVersion.aggregate({ where: { recipeId: recipe.id }, _max: { version: true } })
-        await tx.recipeVersion.update({ where: { id: old.id }, data: { effectiveTo: now } })
-        const version = await tx.recipeVersion.create({
-          data: {
-            recipeId: recipe.id,
-            version: (last._max.version ?? old.version) + 1,
-            outputQty: old.outputQty,
-            outputUomCode: old.outputUomCode,
-            referenceSellPrice: old.referenceSellPrice,
-            targetFoodCostPct: old.targetFoodCostPct,
-            effectiveFrom: now,
-            notes: old.notes,
-            createdById: user.id,
-            lines: { create: copied },
-          },
-        })
-        await tx.recipe.update({ where: { id: recipe.id }, data: { activeVersionId: version.id } })
-      }
 
       await logAudit(tx, {
         actorId: user.id,
         actorRole: user.role,
         kantinSlug: KANTIN,
-        action: "recipe.oil_model_recalibrated",
-        entityType: "OilAllocationSetting",
-        entityId: edited.id,
-        summary: `Recalibrated oil model after updating ${edited.name}`,
-        metadata: {
-          ...data,
-          totalOilSpend,
-          directOilCost: model.directOilCost,
-          fryerPool: model.fryerPool,
-          friesCostPerGram: model.friesCostPerGram,
-          breadedCostPerGram: model.breadedCostPerGram,
-          variance: model.variance,
-        },
+        action: "recipe.frying_rates_updated",
+        entityType: "FryingOilRate",
+        entityId: KANTIN,
+        summary: "Updated the flat per-gram deep-frying rate",
+        metadata: data,
         ip: clientIp(),
       })
     })

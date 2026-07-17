@@ -4,7 +4,7 @@ import { prisma } from "./prisma"
 import { toNum } from "./money"
 import { costRecipe, explodeRecipe, type CostingGraph, type CostingProduct, type CostingRecipe } from "./recipe-cost"
 import { normalizeRecipeTitle } from "./recipe-title"
-import { calculateOilAllocation } from "./oil-allocation"
+import { DEFAULT_FRYING_OIL_RATE, isFryingOilLabel } from "./frying-oil"
 
 export interface LoadedCosting {
   graph: CostingGraph
@@ -173,14 +173,10 @@ export interface CostingDashboardRow {
 }
 
 export async function getCostingDashboard(kantinSlug: string) {
-  const [loaded, pos, oilSettings] = await Promise.all([
+  const [loaded, pos, fryingRateRow] = await Promise.all([
     loadCosting(kantinSlug),
     getPosCatalog(kantinSlug),
-    prisma.oilAllocationSetting.findMany({
-      where: { kantinSlug },
-      include: { recipe: true },
-      orderBy: [{ recipeId: "desc" }, { name: "asc" }],
-    }),
+    prisma.fryingOilRate.findUnique({ where: { kantinSlug } }),
   ])
   const matched = matchRecipeRows(loaded, pos)
   const rows: CostingDashboardRow[] = matched.map(({ recipe, primaryRow }) => {
@@ -198,23 +194,6 @@ export async function getCostingDashboard(kantinSlug: string) {
   const costedProductIds = new Set(loaded.dbRecipes.flatMap((r) => r.activeVersion?.lines.map((l) => l.productId).filter(Boolean) ?? []))
   const ingredients = loaded.dbProducts.filter((p) => p.kind !== "SEMI_FINISHED" && p.isCostingActive)
   const pricedFoodCosts = rows.flatMap((r) => r.foodCostPct == null ? [] : [r.foodCostPct])
-  const source = oilSettings[0]
-  const oilModel = calculateOilAllocation(
-    oilSettings.map((setting) => ({
-      id: setting.id,
-      unitsSold: setting.unitsSold,
-      friesGrams: toNum(setting.friesGrams),
-      breadedGrams: toNum(setting.breadedGrams),
-      directOilMl: toNum(setting.directOilMl),
-      directCostInRecipe: setting.directCostInRecipe,
-    })),
-    {
-      totalOilSpend: source?.sourceTotalOilSpend == null ? 480000 : toNum(source.sourceTotalOilSpend),
-      directOilUnitCost: source == null ? 0.59375 : toNum(source.directOilUnitCost),
-      breadedFactor: source == null ? 1.25 : toNum(source.soakFactor),
-    },
-  )
-  const oilById = new Map(oilModel.rows.map((row) => [row.id, row]))
   return {
     rows,
     kpis: {
@@ -228,38 +207,7 @@ export async function getCostingDashboard(kantinSlug: string) {
         ? pricedFoodCosts.reduce((sum, value) => sum + value, 0) / pricedFoodCosts.length
         : null,
     },
-    oil: oilSettings.map((setting) => {
-      const calculated = oilById.get(setting.id)!
-      return {
-        settingId: setting.id,
-        recipeId: setting.recipeId,
-        name: setting.name,
-        linked: setting.recipeId != null,
-        unitsSold: setting.unitsSold,
-        friesGrams: toNum(setting.friesGrams),
-        breadedGrams: toNum(setting.breadedGrams),
-        directOilMl: toNum(setting.directOilMl),
-        directCostInRecipe: setting.directCostInRecipe,
-        fryerCost: calculated.fryerCostPerUnit,
-        directCost: calculated.directCostPerUnit,
-        totalCost: calculated.totalOilCostPerUnit,
-        periodCost: calculated.periodOilCost,
-        notes: setting.notes,
-      }
-    }),
-    oilSummary: {
-      totalOilSpend: oilModel.totalOilSpend,
-      directOilUnitCost: oilModel.directOilUnitCost,
-      breadedFactor: oilModel.breadedFactor,
-      directOilCost: oilModel.directOilCost,
-      fryerPool: oilModel.fryerPool,
-      friesCostPerGram: oilModel.friesCostPerGram,
-      breadedCostPerGram: oilModel.breadedCostPerGram,
-      allocatedTotal: oilModel.allocatedTotal,
-      variance: oilModel.variance,
-      sourceStart: source?.sourceStart?.toISOString() ?? null,
-      sourceEnd: source?.sourceEnd?.toISOString() ?? null,
-    },
+    fryingRate: fryingRateRow ? toNum(fryingRateRow.costPerGram) : DEFAULT_FRYING_OIL_RATE,
   }
 }
 
@@ -288,10 +236,11 @@ export async function getRecipeLists(kantinSlug: string) {
 }
 
 export async function getRecipeEditorData(kantinSlug: string, recipeId?: string) {
-  const [loaded, uoms, posItems] = await Promise.all([
+  const [loaded, uoms, posItems, fryingRateRow] = await Promise.all([
     loadCosting(kantinSlug),
     prisma.unitOfMeasure.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     getPosCatalog(kantinSlug),
+    prisma.fryingOilRate.findUnique({ where: { kantinSlug } }),
   ])
   const db = recipeId ? loaded.dbRecipes.find((r) => r.id === recipeId) : null
   const v = db?.activeVersion
@@ -303,11 +252,23 @@ export async function getRecipeEditorData(kantinSlug: string, recipeId?: string)
     }),
     uoms: uoms.map((u) => ({ code: u.code, name: u.name, dimension: u.dimension })),
     posItems: posItems.map((p) => ({ id: p.item_id.toString(), title: p.title, category: p.category, price: Number(p.current_price) })),
+    fryingRate: fryingRateRow ? toNum(fryingRateRow.costPerGram) : DEFAULT_FRYING_OIL_RATE,
     recipe: db && v ? {
       id: db.id, name: db.name, kind: db.kind, status: db.status, outputProductId: db.outputProductId,
       outputQty: toNum(v.outputQty), outputUomCode: v.outputUomCode,
       referenceSellPrice: v.referenceSellPrice == null ? null : toNum(v.referenceSellPrice), targetFoodCostPct: toNum(v.targetFoodCostPct), notes: v.notes,
-      lines: v.lines.map((l) => ({ id: l.id, kind: l.kind, productId: l.productId, label: l.label, quantity: toNum(l.quantity), uomCode: l.uomCode, fixedUnitCost: l.fixedUnitCost == null ? null : toNum(l.fixedUnitCost) })),
+      lines: v.lines.map((l) => {
+        const isFryingOil = l.kind === "COST_ADJUSTMENT" && isFryingOilLabel(l.label)
+        return {
+          id: l.id,
+          kind: isFryingOil ? "FRYING_OIL" as const : l.kind,
+          productId: l.productId,
+          label: l.label,
+          quantity: toNum(l.quantity),
+          uomCode: l.uomCode,
+          fixedUnitCost: l.fixedUnitCost == null ? null : toNum(l.fixedUnitCost),
+        }
+      }),
       aliases: db.aliases.map((a) => ({ title: a.title, posItemId: a.posItemId?.toString() ?? "", isPrimary: a.isPrimary })),
       cost: costRecipe(db.id, loaded.graph),
     } : null,
