@@ -33,11 +33,11 @@ body {
     height: 100vh;
     overflow: hidden;
     background:
-      radial-gradient(ellipse at 10% -4%, rgba(255, 226, 178, .26), transparent 30%),
-      radial-gradient(ellipse at 118% 62%, rgba(128, 192, 72, .2), transparent 38%),
-      radial-gradient(ellipse at -30% 108%, rgba(151, 204, 87, .14), transparent 44%),
-      linear-gradient(168deg, #ef6a4e 0%, #de5540 34%, #b03d2e 66%, #6e2721 100%);
-    box-shadow: 10px 0 34px rgba(96, 34, 25, .16), inset -1px 0 rgba(255,255,255,.1);
+      radial-gradient(ellipse at 12% -4%, rgba(255, 214, 166, .18), transparent 26%),
+      radial-gradient(ellipse at 118% 66%, rgba(128, 192, 72, .16), transparent 36%),
+      radial-gradient(ellipse at -30% 110%, rgba(151, 204, 87, .1), transparent 42%),
+      linear-gradient(172deg, #e95f45 0%, #c03726 22%, #8f2517 52%, #611810 80%, #470f0a 100%);
+    box-shadow: 10px 0 34px rgba(70, 20, 13, .22), inset -1px 0 rgba(255,255,255,.09);
   }
 
   /* Texture: film grain + fading dot grid */
@@ -47,12 +47,14 @@ body {
     inset: 0;
     z-index: -1;
     background-image:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E"),
-      radial-gradient(rgba(255,255,255,.085) 1px, transparent 1.4px);
-    background-size: 180px 180px, 15px 15px;
+      radial-gradient(rgba(255,255,255,.16) 1.2px, transparent 1.7px),
+      radial-gradient(rgba(255,190,160,.07) 1px, transparent 1.5px),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
+    background-size: 13px 13px, 26px 26px, 180px 180px;
+    background-position: 0 0, 6.5px 6.5px, 0 0;
     mix-blend-mode: overlay;
-    opacity: .5;
-    mask-image: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,.65) 55%, rgba(0,0,0,.32));
+    opacity: .6;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,.85) 60%, rgba(0,0,0,.55));
   }
 
   /* Right edge light */
@@ -80,7 +82,7 @@ body {
     user-select: none;
   }
 
-  .sidebar-brand { position: relative; }
+  .sidebar-brand { position: relative; background: #e95f45; }
   .sidebar-brand::after {
     content: "";
     position: absolute;
