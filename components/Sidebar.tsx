@@ -106,14 +106,14 @@ export function Sidebar({ kantin, showCosting = false }: { kantin: KantinMeta; s
       <Link
         href={href}
         className={clsx(
-          "sidebar-item group relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] transition-all duration-200",
+          "sidebar-item group relative flex items-center gap-2 rounded-xl px-2 py-1.5 text-[12px] transition-all duration-200",
           active
-            ? "bg-white/[0.16] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_5px_14px_rgba(86,25,17,.12)]"
+            ? "bg-gradient-to-r from-white/[0.22] to-white/[0.07] font-semibold text-white ring-1 ring-white/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_6px_16px_rgba(86,25,17,.16)]"
             : "text-white/70 hover:translate-x-0.5 hover:bg-white/[0.08] hover:text-white",
         )}
       >
-        {active && <span className="absolute -left-[5px] top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-leaf-300 shadow-[0_0_8px_rgba(177,218,124,.7)]" />}
-        <span className={clsx("grid h-6 w-6 place-items-center rounded-md border transition-all [&>svg]:h-3.5 [&>svg]:w-3.5", active ? "border-white/15 bg-white/12 text-leaf-200" : "border-transparent bg-black/[0.05] text-white/55 group-hover:bg-white/10 group-hover:text-white/85")}>
+        {active && <span className="absolute -left-[5px] top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-leaf-200 to-leaf-400 shadow-[0_0_10px_rgba(177,218,124,.85)]" />}
+        <span className={clsx("grid h-6 w-6 place-items-center rounded-lg border transition-all [&>svg]:h-3.5 [&>svg]:w-3.5", active ? "border-leaf-200/25 bg-leaf-300/[0.18] text-leaf-100 shadow-[0_0_12px_rgba(151,204,87,.25)]" : "border-transparent bg-black/[0.06] text-white/55 group-hover:bg-white/10 group-hover:text-white/85")}>
           <Icon name={icon} />
         </span>
         <span className="sidebar-copy">{label}</span>
@@ -123,6 +123,8 @@ export function Sidebar({ kantin, showCosting = false }: { kantin: KantinMeta; s
 
   return (
     <aside className="kantin-sidebar flex shrink-0 flex-col text-white">
+      {/* Ghosted K watermark (decorative texture layer) */}
+      <img src="/brand/kantin-k.png" alt="" aria-hidden className="sidebar-watermark" />
       {/* Brand — the actual Kantin logo (its coral background blends into the sidebar) */}
       <div className="sidebar-brand px-4 pb-3 pt-4">
         <img
@@ -138,11 +140,11 @@ export function Sidebar({ kantin, showCosting = false }: { kantin: KantinMeta; s
       {/* Nav */}
       <nav className="sidebar-nav scrollbar-thin mt-2 flex-1 space-y-4 overflow-y-auto px-3.5 pb-4 pt-2">
         <div>
-          <div className="sidebar-section-label px-2 pb-1 text-[8.5px] font-semibold uppercase tracking-[0.2em] text-white/40">Reports</div>
+          <div className="sidebar-section-label flex items-center gap-1.5 px-2 pb-1 text-[8.5px] font-semibold uppercase tracking-[0.2em] text-white/45"><span className="h-1 w-1 rounded-full bg-leaf-300/80 shadow-[0_0_6px_rgba(177,218,124,.8)]" />Reports</div>
           <div className="space-y-px">{reportsNav.map((i) => <Item key={i.sub} {...i} />)}</div>
         </div>
         <div>
-          <div className="sidebar-section-label px-2 pb-1 text-[8.5px] font-semibold uppercase tracking-[0.2em] text-white/40">Operations</div>
+          <div className="sidebar-section-label flex items-center gap-1.5 px-2 pb-1 text-[8.5px] font-semibold uppercase tracking-[0.2em] text-white/45"><span className="h-1 w-1 rounded-full bg-leaf-300/80 shadow-[0_0_6px_rgba(177,218,124,.8)]" />Operations</div>
           <div className="space-y-px">{operationsNav.filter((i) => i.sub !== "/costing" || showCosting).map((i) => <Item key={i.sub} {...i} />)}</div>
         </div>
       </nav>

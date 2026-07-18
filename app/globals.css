@@ -33,36 +33,65 @@ body {
     height: 100vh;
     overflow: hidden;
     background:
-      radial-gradient(ellipse at 8% 2%, rgba(255, 220, 171, .2), transparent 28%),
-      radial-gradient(ellipse at 100% 72%, rgba(128, 192, 72, .13), transparent 35%),
-      linear-gradient(160deg, #e86249 0%, #d34d37 42%, #a7372a 76%, #782a24 100%);
-    box-shadow: 10px 0 34px rgba(96, 34, 25, .13), inset -1px 0 rgba(255,255,255,.1);
+      radial-gradient(ellipse at 10% -4%, rgba(255, 226, 178, .26), transparent 30%),
+      radial-gradient(ellipse at 118% 62%, rgba(128, 192, 72, .2), transparent 38%),
+      radial-gradient(ellipse at -30% 108%, rgba(151, 204, 87, .14), transparent 44%),
+      linear-gradient(168deg, #ef6a4e 0%, #de5540 34%, #b03d2e 66%, #6e2721 100%);
+    box-shadow: 10px 0 34px rgba(96, 34, 25, .16), inset -1px 0 rgba(255,255,255,.1);
   }
 
+  /* Texture: film grain + fading dot grid */
   .kantin-sidebar::before {
     content: "";
     position: absolute;
     inset: 0;
     z-index: -1;
-    opacity: .34;
     background-image:
-      repeating-linear-gradient(128deg, transparent 0 7px, rgba(255,255,255,.055) 7px 8px),
-      repeating-linear-gradient(38deg, transparent 0 18px, rgba(73,20,14,.055) 18px 19px);
-    mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.55) 60%, rgba(0,0,0,.2));
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E"),
+      radial-gradient(rgba(255,255,255,.085) 1px, transparent 1.4px);
+    background-size: 180px 180px, 15px 15px;
+    mix-blend-mode: overlay;
+    opacity: .5;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,.65) 55%, rgba(0,0,0,.32));
   }
 
+  /* Right edge light */
   .kantin-sidebar::after {
     content: "";
     position: absolute;
     inset: 0 0 0 auto;
     z-index: -1;
     width: 3px;
-    background: linear-gradient(to bottom, transparent 8%, rgba(177,218,124,.7) 29%, rgba(255,255,255,.18) 58%, transparent 92%);
-    opacity: .7;
+    background: linear-gradient(to bottom, transparent 6%, rgba(177,218,124,.75) 28%, rgba(255,255,255,.2) 58%, transparent 92%);
+    opacity: .75;
+  }
+
+  /* Ghosted brand watermark behind the nav */
+  .sidebar-watermark {
+    position: absolute;
+    right: -2.4rem;
+    bottom: 2.2rem;
+    z-index: -1;
+    width: 11.5rem;
+    opacity: .08;
+    transform: rotate(-10deg);
+    filter: saturate(0) brightness(3.4);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .sidebar-brand { position: relative; }
+  .sidebar-brand::after {
+    content: "";
+    position: absolute;
+    inset: auto 1rem 0 1rem;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.28) 22%, rgba(177,218,124,.4) 55%, transparent);
   }
 
   .sidebar-footer {
-    background: linear-gradient(180deg, rgba(82,20,14,.02), rgba(55,15,12,.14));
+    background: linear-gradient(180deg, rgba(82,20,14,.04), rgba(50,13,10,.24));
+    backdrop-filter: blur(6px);
   }
 
   .workspace-surface {
