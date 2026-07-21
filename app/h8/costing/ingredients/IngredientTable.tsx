@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react"
 import { createCostingIngredient, saveCostingIngredient } from "../actions"
+import { categoryOptions } from "@/lib/costing-categories"
 
 export interface IngredientRow {
   id: string; name: string; kind: string; category: string; uomCode: string; packPrice: number | null; packQty: number | null
@@ -21,6 +22,7 @@ export function IngredientTable({ ingredients, canEdit, uoms }: { ingredients: I
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const categories = useMemo(() => [...new Set(ingredients.map((x) => x.category))].sort(), [ingredients])
+  const pickable = useMemo(() => categoryOptions(categories), [categories])
   const rows = useMemo(() => ingredients.filter((x) => (!category || x.category === category) && (!query.trim() || x.name.toLowerCase().includes(query.toLowerCase().trim()))), [ingredients, category, query])
   const control = "form-control"
 
@@ -90,6 +92,6 @@ export function IngredientTable({ ingredients, canEdit, uoms }: { ingredients: I
         </Fragment>
       })}</tbody>
     </table></div>
-    <datalist id="cost-categories">{categories.map((c) => <option key={c} value={c} />)}</datalist>
+    <datalist id="cost-categories">{pickable.map((c) => <option key={c} value={c} />)}</datalist>
   </div>
 }
