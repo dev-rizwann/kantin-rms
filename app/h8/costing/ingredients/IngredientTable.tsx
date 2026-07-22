@@ -2,7 +2,8 @@
 
 import { Fragment, useMemo, useState } from "react"
 import { createCostingIngredient, saveCostingIngredient } from "../actions"
-import { categoryOptions } from "@/lib/costing-categories"
+import { CategoryManager } from "./CategoryManager"
+import type { CostingCategoryRow } from "@/lib/costing-categories"
 
 export interface IngredientRow {
   id: string; name: string; kind: string; category: string; uomCode: string; packPrice: number | null; packQty: number | null
@@ -12,7 +13,7 @@ export interface IngredientRow {
 type NewDraft = { name: string; kind: "RAW_MATERIAL" | "PACKAGING"; category: string; uomCode: string; packPrice: number; packQty: number; note: string; estimated: boolean }
 const EMPTY_NEW: NewDraft = { name: "", kind: "RAW_MATERIAL", category: "", uomCode: "GRAM", packPrice: 0, packQty: 0, note: "", estimated: false }
 
-export function IngredientTable({ ingredients, canEdit, uoms }: { ingredients: IngredientRow[]; canEdit: boolean; uoms: { code: string; name: string }[] }) {
+export function IngredientTable({ ingredients, canEdit, uoms, allCategories }: { ingredients: IngredientRow[]; canEdit: boolean; uoms: { code: string; name: string }[]; allCategories: CostingCategoryRow[] }) {
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState("")
   const [editing, setEditing] = useState<string | null>(null)
@@ -22,7 +23,7 @@ export function IngredientTable({ ingredients, canEdit, uoms }: { ingredients: I
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const categories = useMemo(() => [...new Set(ingredients.map((x) => x.category))].sort(), [ingredients])
-  const pickable = useMemo(() => categoryOptions(categories), [categories])
+  const pickable = useMemo(() => [...new Set([...allCategories.map((c) => c.name), ...categories])].sort(), [allCategories, categories])
   const rows = useMemo(() => ingredients.filter((x) => (!category || x.category === category) && (!query.trim() || x.name.toLowerCase().includes(query.toLowerCase().trim()))), [ingredients, category, query])
   const control = "form-control"
 
@@ -46,6 +47,7 @@ export function IngredientTable({ ingredients, canEdit, uoms }: { ingredients: I
   const patchNew = <K extends keyof NewDraft>(key: K, val: NewDraft[K]) => setNewDraft((d) => ({ ...d, [key]: val }))
 
   return <div>
+    <CategoryManager categories={allCategories} canEdit={canEdit} />
     <div className="editor-card mb-4 flex flex-wrap items-center gap-3 p-3"><div className="relative min-w-64 flex-1"><span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-stone-300">⌕</span><input className={control + " pl-9"} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by ingredient name…" /></div><select className={control + " min-w-48 md:w-auto"} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">All ingredient groups</option>{categories.map((c) => <option key={c}>{c}</option>)}</select><span className="rounded-full bg-stone-100 px-2.5 py-[3px] text-[10.5px] font-semibold tabular-nums text-stone-500">{rows.length} of {ingredients.length}</span>{canEdit && <button type="button" onClick={() => { setCreating((v) => !v); setError(null) }} className={creating ? "rounded-lg bg-stone-900 px-4 py-2 text-xs font-semibold text-white" : "btn-primary"}>{creating ? "Close" : "+ New ingredient"}</button>}</div>
     {error && <div className="mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
     {creating && <div className="editor-card mb-4 border-leaf-200 bg-[linear-gradient(135deg,rgba(245,250,236,.75),rgba(255,255,255,.95)_58%)] p-5">

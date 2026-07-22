@@ -83,6 +83,7 @@ model Kantin {
   recipeAliases    RecipeAlias[]
   oilAllocations   OilAllocationSetting[]
   fryingOilRates   FryingOilRate[]
+  costingCategories CostingCategory[]
 }
 
 // =========================================================================
@@ -425,6 +426,26 @@ model OilAllocationSetting {
 /// potato/breaded split — one rate for all fried items, owner decision).
 /// Recipes store the fried input weight; the rate is copied into the active
 /// recipe line so costing remains automatic and auditable.
+/// User-managed costing categories (the grouping shown in the ingredient and
+/// recipe-line pickers). Product.costingCategory stores the NAME, not an id, so
+/// renaming a category cascades by updating the matching products in the same
+/// transaction. A category with no ingredients still lives here, which is the
+/// whole point — you can create one before you have anything to put in it.
+model CostingCategory {
+  id         String   @id @default(cuid())
+  kantinSlug String
+  name       String
+  sortOrder  Int      @default(100)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  kantin Kantin @relation(fields: [kantinSlug], references: [slug])
+
+  @@unique([kantinSlug, name])
+  @@index([kantinSlug, isActive])
+}
+
 model FryingOilRate {
   id          String   @id @default(cuid())
   kantinSlug  String   @unique

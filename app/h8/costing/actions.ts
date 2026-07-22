@@ -34,6 +34,7 @@ export async function createCostingIngredient(input: z.input<typeof newIngredien
     const id = await prisma.$transaction(async (tx) => {
       const clash = await tx.product.findFirst({ where: { kantinSlug: KANTIN, name: { equals: data.name, mode: "insensitive" } } })
       if (clash) throw new Error(`An ingredient named "${clash.name}" already exists.`)
+      await ensureCategory(tx, data.category)
       const product = await tx.product.create({ data: {
         kantinSlug: KANTIN, name: data.name, kind: data.kind, unit: legacyUnit(data.uomCode), stockUomCode: data.uomCode,
         costingCategory: data.category, standardPackPrice: data.packPrice, standardPackQty: data.packQty,
@@ -75,6 +76,7 @@ export async function saveCostingIngredient(input: z.input<typeof ingredientSche
       const product = await tx.product.findFirst({ where: { id: data.id, kantinSlug: KANTIN } })
       if (!product) throw new Error("Ingredient not found.")
       if (product.kind === "SEMI_FINISHED") throw new Error("Semi-finished costs come from their production recipe.")
+      await ensureCategory(tx, data.category)
       await tx.product.update({ where: { id: product.id }, data: {
         costingCategory: data.category,
         standardPackPrice: data.packPrice,
@@ -265,6 +267,88 @@ export async function updateFryingOilRate(input: z.input<typeof fryingRateSchema
         summary: "Updated the flat per-gram deep-frying rate",
         metadata: data,
         ip: clientIp(),
+      })
+    })
+    revalidateCosting()
+    return { ok: true }
+  } catch (e) { return { ok: false, error: errMsg(e) } }
+}
+
+const categoryNameSchema = z.string().trim().min(2, "Give the category a name of at least 2 characters.").max(60)
+
+/** Register a category typed straight into an ingredient form, so the list in
+ *  the pickers never lags behind what products actually use. Re-activates an
+ *  archived one rather than colliding on the unique key. */
+type Tx = Prisma.TransactionClient
+async function ensureCategory(tx: Tx, name: string) {
+  const existing = await tx.costingCategory.findFirst({ where: { kantinSlug: KANTIN, name } })
+  if (!existing) { await tx.costingCategory.create({ data: { kantinSlug: KANTIN, name } }); return }
+  if (!existing.isActive) await tx.costingCategory.update({ where: { id: existing.id }, data: { isActive: true } })
+}
+
+export async function createCostingCategory(input: { name: string }): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await requireAction("product.override", KANTIN)
+    const name = categoryNameSchema.parse(input.name)
+    const clash = await prisma.costingCategory.findFirst({ where: { kantinSlug: KANTIN, name: { equals: name, mode: "insensitive" } } })
+    if (clash) {
+      if (clash.isActive) throw new Error(`"${clash.name}" already exists.`)
+      await prisma.costingCategory.update({ where: { id: clash.id }, data: { isActive: true } })
+      revalidateCosting()
+      return { ok: true, data: { id: clash.id } }
+    }
+    const created = await prisma.$transaction(async (tx) => {
+      const row = await tx.costingCategory.create({ data: { kantinSlug: KANTIN, name } })
+      await logAudit(tx, {
+        actorId: user.id, actorRole: user.role, kantinSlug: KANTIN, action: "costing.category.created",
+        entityType: "CostingCategory", entityId: row.id, summary: `Created costing category ${name}`, ip: clientIp(),
+      })
+      return row
+    })
+    revalidateCosting()
+    return { ok: true, data: { id: created.id } }
+  } catch (e) { return { ok: false, error: errMsg(e) } }
+}
+
+/** Categories are stored on Product by NAME, so a rename has to move the
+ *  products in the same transaction or their ingredients fall out of the list. */
+export async function renameCostingCategory(input: { id: string; name: string }): Promise<ActionResult> {
+  try {
+    const user = await requireAction("product.override", KANTIN)
+    const name = categoryNameSchema.parse(input.name)
+    await prisma.$transaction(async (tx) => {
+      const row = await tx.costingCategory.findFirst({ where: { id: input.id, kantinSlug: KANTIN } })
+      if (!row) throw new Error("That category no longer exists.")
+      if (row.name === name) return
+      const clash = await tx.costingCategory.findFirst({ where: { kantinSlug: KANTIN, name: { equals: name, mode: "insensitive" }, id: { not: row.id } } })
+      if (clash) throw new Error(`"${clash.name}" already exists.`)
+      await tx.costingCategory.update({ where: { id: row.id }, data: { name } })
+      const moved = await tx.product.updateMany({ where: { kantinSlug: KANTIN, costingCategory: row.name }, data: { costingCategory: name } })
+      await logAudit(tx, {
+        actorId: user.id, actorRole: user.role, kantinSlug: KANTIN, action: "costing.category.renamed",
+        entityType: "CostingCategory", entityId: row.id, summary: `Renamed costing category ${row.name} to ${name} (${moved.count} ingredients moved)`,
+        metadata: { from: row.name, to: name, products: moved.count }, ip: clientIp(),
+      })
+    })
+    revalidateCosting()
+    return { ok: true }
+  } catch (e) { return { ok: false, error: errMsg(e) } }
+}
+
+/** Hide an empty category. Refuses while ingredients still point at it — the
+ *  name lives on the products, so removing it would orphan them. */
+export async function archiveCostingCategory(input: { id: string }): Promise<ActionResult> {
+  try {
+    const user = await requireAction("product.override", KANTIN)
+    await prisma.$transaction(async (tx) => {
+      const row = await tx.costingCategory.findFirst({ where: { id: input.id, kantinSlug: KANTIN } })
+      if (!row) throw new Error("That category no longer exists.")
+      const inUse = await tx.product.count({ where: { kantinSlug: KANTIN, costingCategory: row.name } })
+      if (inUse) throw new Error(`${inUse} ingredient${inUse === 1 ? "" : "s"} still use "${row.name}". Move them first.`)
+      await tx.costingCategory.update({ where: { id: row.id }, data: { isActive: false } })
+      await logAudit(tx, {
+        actorId: user.id, actorRole: user.role, kantinSlug: KANTIN, action: "costing.category.archived",
+        entityType: "CostingCategory", entityId: row.id, summary: `Archived costing category ${row.name}`, ip: clientIp(),
       })
     })
     revalidateCosting()
