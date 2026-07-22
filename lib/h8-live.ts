@@ -369,6 +369,95 @@ export async function getH8DailyCashLive(): Promise<H8DailyCashLive> {
 }
 
 // =========================================================================
+// DAY ORDERS — every ticket for one date, with its item lines.
+// Feeds the inline day expander on /h8/daily and the day-detail page.
+// A ticket = mp_receipt (the order) + mp_checkout (its settlement); item
+// lines hang off receipt_id. mp_itemsale has NO qty column — one row is one
+// unit — so quantity is a COUNT and repeats collapse by item_id here.
+// =========================================================================
+
+export interface H8OrderLine { item: string; category: string | null; qty: number; unitPrice: number; lineTotal: number; canceled: number }
+export interface H8Order {
+  checkoutId: number; receiptId: number; openTime: string | null; closeTime: string | null
+  cashier: string | null; customer: string | null; payments: string[]
+  itemCount: number; itemsTotal: number; total: number; rounding: number; void: boolean
+  lines: H8OrderLine[]
+}
+
+export async function getH8DayOrdersLive(date: string): Promise<H8Order[]> {
+  const rows = await prisma.$queryRaw<{ payload: any }[]>`
+    WITH co AS MATERIALIZED (
+      SELECT id, receipt_id, staff_id, total, rounding, void, created
+      FROM mp_checkout WHERE kantin_slug=${K} AND created::date = ${date}::date
+    ),
+    rc AS MATERIALIZED (
+      SELECT r.id, r.open_time, r.customer_id
+      FROM mp_receipt r WHERE r.kantin_slug=${K} AND r.id IN (SELECT receipt_id FROM co)
+    ),
+    si AS MATERIALIZED (
+      SELECT s.receipt_id, s.item_id, s.price,
+             (cn.id IS NOT NULL) AS canceled,
+             COALESCE(it.title,'(unknown item)') AS item, cat.title AS category
+      FROM mp_itemsale s
+      LEFT JOIN mp_cancel cn ON cn.itemsale_id=s.id AND cn.kantin_slug=${K}
+      LEFT JOIN mp_item it ON it.id=s.item_id AND it.kantin_slug=${K}
+      LEFT JOIN mp_category cat ON cat.id=it.category_id AND cat.kantin_slug=${K}
+      WHERE s.kantin_slug=${K} AND s.receipt_id IN (SELECT id FROM rc)
+    ),
+    ln AS MATERIALIZED (
+      SELECT receipt_id, item, category, MAX(price) AS unit_price,
+             COUNT(*) FILTER (WHERE NOT canceled) AS qty,
+             COUNT(*) FILTER (WHERE canceled) AS canceled,
+             COALESCE(SUM(price) FILTER (WHERE NOT canceled),0) AS line_total
+      FROM si GROUP BY receipt_id, item, category
+    ),
+    -- pre-aggregate per receipt: a correlated re-scan per ticket would re-expand
+    -- the JSON-backed views once per row (the /h8/daily 95s class of bug).
+    agg AS MATERIALIZED (
+      SELECT receipt_id, SUM(qty) AS item_count, SUM(line_total) AS items_total,
+             json_agg(json_build_object('item', item, 'category', category, 'qty', qty,
+               'unit_price', unit_price, 'line_total', line_total, 'canceled', canceled)
+               ORDER BY line_total DESC) AS lines
+      FROM ln GROUP BY receipt_id
+    ),
+    pay AS MATERIALIZED (
+      SELECT p.checkout_id, array_agg(DISTINCT pt.title) AS payments
+      FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
+      WHERE p.kantin_slug=${K} AND p.checkout_id IN (SELECT id FROM co)
+      GROUP BY p.checkout_id
+    )
+    SELECT COALESCE(json_agg(o ORDER BY o.close_time DESC NULLS LAST, o.checkout_id DESC),'[]'::json) AS payload
+    FROM (
+      SELECT co.id AS checkout_id, co.receipt_id, rc.open_time, co.created AS close_time,
+             (st.fname||' '||st.sname) AS cashier, cu.title AS customer, co.total, co.rounding, co.void,
+             COALESCE(pay.payments,'{}') AS payments,
+             COALESCE(agg.item_count,0) AS item_count,
+             COALESCE(agg.items_total,0) AS items_total,
+             COALESCE(agg.lines,'[]'::json) AS lines
+      FROM co
+      JOIN rc ON rc.id = co.receipt_id
+      LEFT JOIN agg ON agg.receipt_id = co.receipt_id
+      LEFT JOIN pay ON pay.checkout_id = co.id
+      LEFT JOIN mp_staff st ON st.id=co.staff_id AND st.kantin_slug=${K}
+      LEFT JOIN mp_customer cu ON cu.id=rc.customer_id AND cu.kantin_slug=${K}
+    ) o
+  `
+  const list: any[] = rows[0]?.payload ?? []
+  return list.map((o) => ({
+    checkoutId: n(o.checkout_id), receiptId: n(o.receipt_id),
+    openTime: o.open_time ?? null, closeTime: o.close_time ?? null,
+    cashier: (o.cashier ?? "").trim() || null, customer: (o.customer ?? "").trim() || null,
+    payments: (o.payments ?? []).map((p: string) => payLabel(p)),
+    itemCount: n(o.item_count), itemsTotal: n(o.items_total),
+    total: n(o.total), rounding: n(o.rounding), void: !!o.void,
+    lines: (o.lines ?? []).map((l: any) => ({
+      item: l.item, category: l.category ?? null, qty: n(l.qty),
+      unitPrice: n(l.unit_price), lineTotal: n(l.line_total), canceled: n(l.canceled),
+    })),
+  }))
+}
+
+// =========================================================================
 // DAY DETAIL — one date drill-down (totals, categories, items, payments)
 // Single-date filter keeps it tiny & fast; materialized CTEs = plan-proof.
 // =========================================================================

@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/PageHeader"
 import { KpiStrip, LedgerTable, SectionHead, type Kpi } from "@/components/ui"
 import { money, num, shortDate } from "@/lib/format"
 import { getH8DayDetailLive, payLabel } from "@/lib/h8-live"
+import { DayOrdersLazy } from "../DayOrdersLazy"
 
 export const dynamic = "force-dynamic"
 
@@ -102,6 +103,11 @@ export default async function DayDetailPage({ params }: { params: { date: string
             { key: "sales", header: "Sales", numeric: true, lead: true, render: (r) => money(r.sales), bar: (r) => r.sales / maxItem },
           ]}
         />
+      </section>
+
+      <section className="mb-6">
+        <SectionHead title="Orders" context={`${num(k.tickets)} tickets · click one for its item lines`} />
+        <DayOrdersLazy date={date} />
       </section>
 
       <section>

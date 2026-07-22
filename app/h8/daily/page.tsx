@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader"
 import { KpiStrip, LedgerTable, SectionHead, Badge, type Kpi } from "@/components/ui"
 import { money, num, shortDate, timeOnly } from "@/lib/format"
 import { getH8DailyCashLive, payLabel } from "@/lib/h8-live"
+import { DailyLedger } from "./DailyLedger"
 
 export const dynamic = "force-dynamic"
 
@@ -36,27 +37,8 @@ export default async function DailyCashPage() {
       <KpiStrip items={kpis} />
 
       <section className="mb-6">
-        <SectionHead title="Daily summary" context="click a date for the full day · variance is rounding-adjusted" />
-        <LedgerTable
-          rows={d.daily}
-          cols={[
-            { key: "date", header: "Date", render: (r) => <Link href={`/h8/daily/${r.saleDate}`} className="font-medium text-coral-700 hover:underline">{shortDate(r.saleDate)}</Link> },
-            { key: "tickets", header: "Tickets", numeric: true, muted: true, render: (r) => num(r.tickets) },
-            { key: "gross", header: "Gross", numeric: true, lead: true, render: (r) => money(r.gross) },
-            { key: "pay", header: "Payments", numeric: true, render: (r) => money(r.paymentsNet) },
-            { key: "round", header: "Rounding", numeric: true, muted: true, render: (r) => (r.rounding ? money(r.rounding) : "—") },
-            {
-              key: "var", header: "Variance", numeric: true,
-              render: (r) => {
-                const v = r.variance - r.rounding
-                const cls = Math.abs(v) < 1 ? "text-stone-300" : Math.abs(v) < 50 ? "font-medium text-amber-600" : "font-medium text-red-600"
-                return <span className={cls}>{Math.abs(v) < 1 ? "—" : money(v)}</span>
-              },
-            },
-            { key: "voids", header: "Voids", numeric: true, render: (r) => (r.voids ? <span className="font-medium text-amber-600">{num(r.voids)}</span> : <span className="text-stone-300">—</span>) },
-            { key: "cr", header: "Cancel/Refund", numeric: true, render: (r) => (r.cancels + r.refunds ? <span className="font-medium text-red-600">{r.cancels}/{r.refunds}</span> : <span className="text-stone-300">—</span>) },
-          ]}
-        />
+        <SectionHead title="Daily summary" context="click a date to see its orders · variance is rounding-adjusted" />
+        <DailyLedger rows={d.daily} />
       </section>
 
       <section className="mb-6">
