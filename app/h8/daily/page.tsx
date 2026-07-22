@@ -2,14 +2,15 @@ import Link from "next/link"
 import { ExportExcel } from "@/components/ExportExcel"
 import { PageHeader } from "@/components/PageHeader"
 import { KpiStrip, LedgerTable, SectionHead, Badge, type Kpi } from "@/components/ui"
-import { money, num, shortDate, timeOnly } from "@/lib/format"
+import { money, num, pktDateTime, shortDate, timeOnly } from "@/lib/format"
 import { getH8DailyCashLive, payLabel } from "@/lib/h8-live"
+import { getSyncStatus } from "@/lib/sync-status"
 import { DailyLedger } from "./DailyLedger"
 
 export const dynamic = "force-dynamic"
 
 export default async function DailyCashPage() {
-  const d = await getH8DailyCashLive()
+  const [d, sync] = await Promise.all([getH8DailyCashLive(), getSyncStatus("h8")])
   const k = d.kpis
   const deltaPct = k.prevGross > 0 ? ((k.todayGross - k.prevGross) / k.prevGross) * 100 : null
 
@@ -30,7 +31,7 @@ export default async function DailyCashPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader
           title="Daily & Cash"
-          chips={["Live", `through ${shortDate(d.meta.lastSaleDate)}`, "reconciliation & accountability"]}
+          chips={["Live", `through ${shortDate(d.meta.lastSaleDate)}`, `synced ${pktDateTime(sync.lastContactAt)} PKT`]}
         />
         <div className="pt-1"><ExportExcel /></div>
       </div>

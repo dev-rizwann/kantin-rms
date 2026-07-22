@@ -35,6 +35,33 @@ export function shortDateTime(s: string | null | undefined): string {
   })
 }
 
+/** Pakistan Standard Time, pinned. Use for real timestamptz values (sync
+ *  timestamps, audit rows) — the server container runs UTC and viewers can be
+ *  anywhere, so neither default is right. POS timestamps are naive local time
+ *  and must NOT go through this. */
+export function pktDateTime(s: string | Date | null | undefined): string {
+  if (!s) return "—"
+  const d = s instanceof Date ? s : new Date(s)
+  if (isNaN(d.getTime())) return String(s)
+  return d.toLocaleString("en-PK", {
+    timeZone: "Asia/Karachi",
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true,
+  })
+}
+
+/** "4 min ago" / "2 h ago" / "3 d ago" */
+export function agoLabel(s: string | Date | null | undefined, now: number = Date.now()): string {
+  if (!s) return "never"
+  const t = (s instanceof Date ? s : new Date(s)).getTime()
+  if (isNaN(t)) return "—"
+  const mins = Math.max(0, Math.round((now - t) / 60000))
+  if (mins < 1) return "just now"
+  if (mins < 60) return `${mins} min ago`
+  const hrs = Math.round(mins / 60)
+  if (hrs < 24) return `${hrs} h ago`
+  return `${Math.round(hrs / 24)} d ago`
+}
+
 export function timeOnly(s: string | null | undefined): string {
   if (!s) return "—"
   const d = new Date(s)

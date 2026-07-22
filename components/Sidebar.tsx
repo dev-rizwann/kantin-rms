@@ -4,6 +4,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import clsx from "clsx"
 import type { KantinMeta } from "@/lib/kantins"
+import type { SyncStatus as SyncStatusData } from "@/lib/sync-status"
+import { SyncStatus } from "./SyncStatus"
 import { UserMenu } from "./UserMenu"
 
 type NavItem = { sub: string; label: string; icon: IconName }
@@ -95,7 +97,7 @@ function Icon({ name }: { name: IconName }) {
   )
 }
 
-export function Sidebar({ kantin, showCosting = false }: { kantin: KantinMeta; showCosting?: boolean }) {
+export function Sidebar({ kantin, showCosting = false, sync }: { kantin: KantinMeta; showCosting?: boolean; sync?: SyncStatusData }) {
   const path = usePathname() ?? ""
   const base = `/${kantin.slug}`
 
@@ -151,6 +153,7 @@ export function Sidebar({ kantin, showCosting = false }: { kantin: KantinMeta; s
 
       {/* Footer */}
       <div className="sidebar-footer border-t border-white/12 px-2.5 py-2.5 backdrop-blur-sm">
+        {sync && <SyncStatus status={sync} />}
         <UserMenu dark kantin={kantin} />
       </div>
     </aside>
