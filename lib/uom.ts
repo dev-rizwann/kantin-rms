@@ -113,6 +113,48 @@ export class UomConversionError extends Error {
   }
 }
 
+export function uomDimension(code: string): UomDimension | null {
+  return SEED_BY_CODE.get(code)?.dimension ?? null
+}
+
+/**
+ * A COUNT unit whose real size only exists in ProductUom (BOX, PACK, TIN, CRATE…).
+ * Its catalog ratioToBase is 1, so dimension math silently treats 1 BOX as
+ * 1 PIECE. Anything that changes a product's stock unit must refuse these
+ * while recipe lines are recorded in a different code.
+ */
+export function isAmbiguousPackUnit(code: string): boolean {
+  const u = SEED_BY_CODE.get(code)
+  return !!u && u.dimension === "COUNT" && u.ratioToBase === 1 && code !== "PIECE"
+}
+
+export interface StockUomChange { ok: boolean; reason?: string; factor?: number }
+
+/**
+ * Can a product's STOCK unit move from -> to, given how many recipe lines
+ * reference it and in which unit codes?
+ *
+ * `factor` is how many `to` units make up one `from` unit — multiply the pack
+ * quantity by it to keep the unit cost unchanged (1000 GRAM -> 1 KG).
+ */
+export function checkStockUomChange(from: string, to: string, lineUomCodes: readonly string[] = []): StockUomChange {
+  if (from === to) return { ok: true, factor: 1 }
+  const a = SEED_BY_CODE.get(from), b = SEED_BY_CODE.get(to)
+  if (!b) return { ok: false, reason: `${to} is not a known unit.` }
+
+  const inUse = lineUomCodes.filter((c) => c !== to)
+  // Nothing downstream depends on the old unit — any redefinition is safe.
+  if (inUse.length === 0) return { ok: true, factor: a && b.dimension === a.dimension ? a.ratioToBase / b.ratioToBase : undefined }
+
+  if (!a || a.dimension !== b.dimension) {
+    return { ok: false, reason: `${from} and ${to} measure different things, and ${inUse.length} recipe line${inUse.length === 1 ? " still records" : "s still record"} this ingredient in ${[...new Set(inUse)].join(", ")}. Change those lines first.` }
+  }
+  if (isAmbiguousPackUnit(to) || isAmbiguousPackUnit(from)) {
+    return { ok: false, reason: `${isAmbiguousPackUnit(to) ? to : from} has no fixed size — it needs a per-product pack definition before recipe lines can convert to it.` }
+  }
+  return { ok: true, factor: a.ratioToBase / b.ratioToBase }
+}
+
 /** Whether a conversion path exists (for save-time validation without throwing). */
 export function canConvert(fromCode: string, toCode: string, opts: ConvertOpts = {}): boolean {
   try {

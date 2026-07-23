@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma"
 import { clientIp, requireAction } from "@/lib/server-auth"
 import { logAudit } from "@/lib/audit"
 import { normalizeRecipeTitle } from "@/lib/recipe-title"
-import { convert } from "@/lib/uom"
+import { checkStockUomChange, convert } from "@/lib/uom"
 import { ALL_FRYING_OIL_LABELS, DEFAULT_FRYING_OIL_RATE, FRYING_OIL_LABEL } from "@/lib/frying-oil"
 
 const KANTIN = "h8"
@@ -65,6 +65,7 @@ const ingredientSchema = z.object({
   note: z.string().trim().max(1000).optional(),
   estimated: z.boolean(),
   costingActive: z.boolean(),
+  uomCode: z.string().min(1).optional(),
 })
 
 export async function saveCostingIngredient(input: z.input<typeof ingredientSchema>): Promise<ActionResult> {
@@ -77,7 +78,25 @@ export async function saveCostingIngredient(input: z.input<typeof ingredientSche
       if (!product) throw new Error("Ingredient not found.")
       if (product.kind === "SEMI_FINISHED") throw new Error("Semi-finished costs come from their production recipe.")
       await ensureCategory(tx, data.category)
+
+      // Stock-unit change. avgCost, stock movements and every recipe line are
+      // expressed in this unit, so it can only move where conversion stays
+      // unambiguous — otherwise recipe costs silently drift by 1000x.
+      const oldUom = product.stockUomCode ?? product.unit
+      const newUom = data.uomCode ?? oldUom
+      if (newUom !== oldUom) {
+        const uom = await tx.unitOfMeasure.findFirst({ where: { code: newUom, isActive: true } })
+        if (!uom) throw new Error("Unknown unit of measure.")
+        const moves = await tx.stockMovement.count({ where: { productId: product.id } })
+        if (moves) throw new Error(`${product.name} already has ${moves} stock movement${moves === 1 ? "" : "s"} recorded in ${oldUom}. Changing the unit would corrupt the ledger.`)
+        const lines = await tx.recipeLine.findMany({ where: { productId: product.id }, select: { uomCode: true } })
+        const verdict = checkStockUomChange(oldUom, newUom, lines.map((l) => l.uomCode).filter((c): c is string => !!c))
+        if (!verdict.ok) throw new Error(verdict.reason ?? `Cannot change ${product.name} from ${oldUom} to ${newUom}.`)
+      }
+
       await tx.product.update({ where: { id: product.id }, data: {
+        stockUomCode: newUom,
+        unit: legacyUnit(newUom),
         costingCategory: data.category,
         standardPackPrice: data.packPrice,
         standardPackQty: data.packQty,
@@ -88,7 +107,9 @@ export async function saveCostingIngredient(input: z.input<typeof ingredientSche
         avgCost: unitCost,
         lastPurchaseCost: unitCost,
       } })
-      if (product.avgCost == null || !new Prisma.Decimal(product.avgCost).equals(unitCost)) {
+      // A unit change always gets a history row: the number may be unchanged
+      // while its meaning (Rs per GRAM vs per KG) is not.
+      if (newUom !== oldUom || product.avgCost == null || !new Prisma.Decimal(product.avgCost).equals(unitCost)) {
         await tx.productCostHistory.create({ data: {
           productId: product.id, effectiveAt: new Date(), oldAvgCost: product.avgCost, newAvgCost: unitCost,
           qtyOnHandAtCalc: 0, inboundQty: 0, inboundUnitCost: unitCost, sourceType: "COST_OVERRIDE", sourceId: null,
@@ -96,8 +117,9 @@ export async function saveCostingIngredient(input: z.input<typeof ingredientSche
       }
       await logAudit(tx, {
         actorId: user.id, actorRole: user.role, kantinSlug: KANTIN, action: "product.cost_updated",
-        entityType: "Product", entityId: product.id, summary: `Updated costing for ${product.name} to ${unitCost.toFixed(6)} per ${product.stockUomCode ?? product.unit}`,
-        metadata: { packPrice: data.packPrice, packQty: data.packQty, estimated: data.estimated }, ip: clientIp(),
+        entityType: "Product", entityId: product.id,
+        summary: `Updated costing for ${product.name} to ${unitCost.toFixed(6)} per ${newUom}` + (newUom !== oldUom ? ` (stock unit changed from ${oldUom})` : ""),
+        metadata: { packPrice: data.packPrice, packQty: data.packQty, estimated: data.estimated, uomFrom: oldUom, uomTo: newUom }, ip: clientIp(),
       })
     })
     revalidateCosting()

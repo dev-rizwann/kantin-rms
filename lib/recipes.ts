@@ -213,11 +213,21 @@ export async function getCostingDashboard(kantinSlug: string) {
 
 export async function getCostingIngredients(kantinSlug: string) {
   const products = await loadDbProducts(kantinSlug)
-  return products.filter((p) => p.kind !== "SEMI_FINISHED").map((p) => ({
+  const list = products.filter((p) => p.kind !== "SEMI_FINISHED")
+  // How many recipe lines depend on each ingredient — the stock unit can only
+  // be changed freely while nothing references it.
+  const used = await prisma.recipeLine.groupBy({
+    by: ["productId"],
+    where: { productId: { in: list.map((p) => p.id) } },
+    _count: { _all: true },
+  })
+  const useCount = new Map(used.map((u) => [u.productId ?? "", u._count._all]))
+  return list.map((p) => ({
     id: p.id, name: p.name, kind: p.kind, category: p.costingCategory ?? "Uncategorised", uomCode: p.stockUomCode ?? p.unit,
     packPrice: p.standardPackPrice == null ? null : toNum(p.standardPackPrice), packQty: p.standardPackQty == null ? null : toNum(p.standardPackQty),
     unitCost: p.avgCost == null ? null : toNum(p.avgCost), note: p.costingNote, estimated: p.costIsEstimated,
     costingActive: p.isCostingActive, updatedAt: p.updatedAt.toISOString(),
+    recipeLineCount: useCount.get(p.id) ?? 0,
   }))
 }
 
