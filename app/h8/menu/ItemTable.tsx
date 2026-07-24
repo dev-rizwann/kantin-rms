@@ -7,12 +7,12 @@ import { money, num, shortDate } from "@/lib/format"
 import { Badge } from "@/components/ui"
 
 type SortKey = "sales" | "qty" | "item" | "lastSold" | "cancels"
-type Filter = "all" | "active" | "dead" | "cancels"
 
-export function ItemTable({ items }: { items: H8MenuItem[] }) {
+export function ItemTable({ items, category, onCategoryChange }: { items: H8MenuItem[]; category?: string; onCategoryChange?: (c: string) => void }) {
   const [q, setQ] = useState("")
-  const [cat, setCat] = useState("")
-  const [filter, setFilter] = useState<Filter>("all")
+  const [ownCat, setOwnCat] = useState("")
+  const cat = category ?? ownCat
+  const setCat = onCategoryChange ?? setOwnCat
   const [sort, setSort] = useState<SortKey>("sales")
   const [showCatalog, setShowCatalog] = useState(false)
 
@@ -28,16 +28,13 @@ export function ItemTable({ items }: { items: H8MenuItem[] }) {
       r = r.filter((i) => i.item.toLowerCase().includes(s))
     }
     if (cat) r = r.filter((i) => i.category === cat)
-    if (filter === "active") r = r.filter((i) => i.status === "Active")
-    if (filter === "dead") r = r.filter((i) => i.qty === 0)
-    if (filter === "cancels") r = r.filter((i) => i.cancels > 0)
     const dir = sort === "item" ? 1 : -1
     return [...r].sort((a, b) => {
       if (sort === "item") return a.item.localeCompare(b.item)
       if (sort === "lastSold") return ((a.lastSold ?? "") < (b.lastSold ?? "") ? -1 : 1) * dir
       return ((a[sort] as number) - (b[sort] as number)) * dir
     })
-  }, [items, q, cat, filter, sort])
+  }, [items, q, cat, sort])
 
   const maxSales = Math.max(1, ...items.map((i) => i.sales))
   const input =
@@ -51,20 +48,6 @@ export function ItemTable({ items }: { items: H8MenuItem[] }) {
           <option value="">All categories</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <div className="flex overflow-hidden rounded-lg border border-stone-200 bg-white text-[12px]">
-          {([["all", "All"], ["active", "Active"], ["dead", "Dead stock"], ["cancels", "Has cancels"]] as [Filter, string][]).map(([f, l]) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={clsx(
-                "px-2.5 py-2 transition-colors",
-                filter === f ? "bg-coral-600 font-medium text-white" : "text-stone-500 hover:bg-stone-50 hover:text-stone-800",
-              )}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
         <span className="ml-auto text-[11px] tabular-nums text-stone-400">{rows.length} shown</span>
       </div>
 
