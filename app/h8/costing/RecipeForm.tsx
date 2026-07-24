@@ -16,21 +16,23 @@ type Existing = {
 interface Props { kind: "SEMI_FINISHED" | "MENU"; products: ProductOption[]; uoms: { code: string; name: string; dimension: string }[]; posItems: PosOption[]; fryingRate: number; existing?: Existing | null }
 type DraftLine = { key: string; kind: "PRODUCT" | "COST_ADJUSTMENT" | "FRYING_OIL"; category: string; productId: string; quantity: number; uomCode: string; label: string; fixedUnitCost: number }
 
-function CostDonut({ cost, price }: { cost: number; price: number }) {
+/** Takes the food-cost fraction directly (cost ÷ price) so it always agrees
+ *  with the FC% figure beside it — never re-derives from a different price. */
+function CostDonut({ pct }: { pct: number }) {
   const r = 26
   const circumference = 2 * Math.PI * r
-  const share = price > 0 ? Math.min(1, cost / price) : 1
-  const loss = price > 0 && cost >= price
-  const pct = price > 0 ? (cost / price) * 100 : null
+  const share = Math.min(1, Math.max(0, pct))
+  const loss = pct >= 1
+  const shown = pct * 100
   return (
-    <div className="relative h-[74px] w-[74px] shrink-0" title={pct == null ? undefined : `Cost ${pct.toFixed(1)}% of price — profit ${(100 - pct).toFixed(1)}%`}>
+    <div className="relative h-[74px] w-[74px] shrink-0" title={`Cost ${shown.toFixed(1)}% of price — profit ${(100 - shown).toFixed(1)}%`}>
       <svg viewBox="0 0 64 64" className="h-full w-full -rotate-90">
         <circle cx="32" cy="32" r={r} fill="none" stroke={loss ? "rgba(248,113,113,.22)" : "#97cc57"} strokeWidth="8" opacity={loss ? 1 : 0.85} />
         <circle cx="32" cy="32" r={r} fill="none" stroke={loss ? "#f87171" : "#e96047"} strokeWidth="8" strokeDasharray={`${share * circumference} ${circumference}`} strokeLinecap="round" />
       </svg>
       <div className="absolute inset-0 grid place-items-center text-center leading-none">
         <div>
-          <div className={"text-[12px] font-bold tabular-nums " + (loss ? "text-red-300" : "text-white/90")}>{pct == null ? "—" : `${pct.toFixed(0)}%`}</div>
+          <div className={"text-[12px] font-bold tabular-nums " + (loss ? "text-red-300" : "text-white/90")}>{shown.toFixed(0)}%</div>
           <div className="mt-0.5 text-[7.5px] font-semibold uppercase tracking-wide text-white/35">cost</div>
         </div>
       </div>
@@ -147,7 +149,7 @@ export function RecipeForm({ kind, products, uoms, posItems, fryingRate, existin
     <aside><div className="sticky top-6 overflow-hidden rounded-2xl bg-stone-900 text-white shadow-[0_20px_50px_rgba(28,25,23,.18)] ring-1 ring-black/5">
       <div className="relative overflow-hidden p-4"><div className="absolute -right-10 -top-12 h-36 w-36 rounded-full bg-coral-500/25 blur-2xl" /><div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-leaf-500/15 blur-2xl" /><div className="relative"><div className="flex items-center justify-between"><div className="text-[9.5px] font-semibold uppercase tracking-[0.18em] text-white/45">{existing ? "Saved cost · revisioned" : "Draft cost preview"}</div><span className="h-2 w-2 rounded-full bg-leaf-400 shadow-[0_0_12px_rgba(151,204,87,.8)]" /></div><div className="mt-3 font-display text-[27px] font-semibold tracking-tight">Rs {cost.toLocaleString("en-PK", { maximumFractionDigits: 2 })}</div><div className="mt-1 text-xs text-white/45">{kind === "MENU" ? "Total cost per selling portion" : "Total cost of this preparation batch"}</div></div></div>
       <div className="border-y border-white/10 bg-white/[0.035] px-4 py-3.5">
-        {kind === "MENU" ? <><div className="flex items-center gap-3">{((posPrice ?? sellPrice) > 0 && cost > 0) && <CostDonut cost={cost} price={posPrice ?? sellPrice} />}<div className="flex flex-1 items-end justify-between"><div><div className="text-[9.5px] font-semibold uppercase tracking-wider text-white/40">Food cost</div><div className="mt-1 text-xl font-semibold tabular-nums">{foodCostPct == null ? "—" : `${(foodCostPct * 100).toFixed(1)}%`}</div></div><div className="text-right"><div className="text-[9.5px] font-semibold uppercase tracking-wider text-white/40">Gross margin</div><div className={(sellPrice - cost < 0 ? "text-red-300" : "text-leaf-300") + " mt-1 text-base font-semibold tabular-nums"}>{sellPrice > 0 ? `Rs ${(sellPrice - cost).toFixed(2)}` : "—"}</div></div></div></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={foodCostTone + " h-full rounded-full transition-all"} style={{ width: `${Math.min(100, (foodCostPct ?? 0) * 100)}%` }} /></div><div className="mt-1.5 flex justify-between text-[9.5px] text-white/30"><span>Target {target.toFixed(1)}%</span><span>Selling price Rs {sellPrice || "—"}</span></div></> : <div className="flex items-end justify-between"><div><div className="text-[9.5px] font-semibold uppercase tracking-wider text-white/40">Output cost</div><div className="mt-1 text-xl font-semibold tabular-nums">{outputQty > 0 ? `Rs ${(cost / outputQty).toFixed(4)}` : "—"}</div></div><span className="text-xs text-white/45">per {outputUomCode}</span></div>}
+        {kind === "MENU" ? <><div className="flex items-center gap-3">{(foodCostPct != null && cost > 0) && <CostDonut pct={foodCostPct} />}<div className="flex flex-1 items-end justify-between"><div><div className="text-[9.5px] font-semibold uppercase tracking-wider text-white/40">Food cost</div><div className="mt-1 text-xl font-semibold tabular-nums">{foodCostPct == null ? "—" : `${(foodCostPct * 100).toFixed(1)}%`}</div></div><div className="text-right"><div className="text-[9.5px] font-semibold uppercase tracking-wider text-white/40">Gross margin</div><div className={(sellPrice - cost < 0 ? "text-red-300" : "text-leaf-300") + " mt-1 text-base font-semibold tabular-nums"}>{sellPrice > 0 ? `Rs ${(sellPrice - cost).toFixed(2)}` : "—"}</div></div></div></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={foodCostTone + " h-full rounded-full transition-all"} style={{ width: `${Math.min(100, (foodCostPct ?? 0) * 100)}%` }} /></div><div className="mt-1.5 flex justify-between text-[9.5px] text-white/30"><span>Target {target.toFixed(1)}%</span><span>Selling price Rs {sellPrice || "—"}</span></div></> : <div className="flex items-end justify-between"><div><div className="text-[9.5px] font-semibold uppercase tracking-wider text-white/40">Output cost</div><div className="mt-1 text-xl font-semibold tabular-nums">{outputQty > 0 ? `Rs ${(cost / outputQty).toFixed(4)}` : "—"}</div></div><span className="text-xs text-white/45">per {outputUomCode}</span></div>}
       </div>
       {kind === "MENU" && suggestedPrice != null && <div className="border-b border-white/10 px-4 py-3.5">
         <div className="text-[9.5px] font-semibold uppercase tracking-wider text-white/40">Pricing helper</div>
