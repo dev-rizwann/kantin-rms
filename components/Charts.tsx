@@ -21,6 +21,15 @@ const PALETTE = ["#e96047", "#80c048", "#d97706", "#0f766e", "#78716c", "#4f46e5
 const GRID = "#f0efeb"
 const TICK = "#a8a29e"
 
+/** Compact money axis: 6,000,000 -> "6M", 4,500,000 -> "4.5M", 12,000 -> "12k". */
+function compactAxis(v: number): string {
+  const a = Math.abs(v)
+  if (a >= 1_000_000) return `${trimZero(v / 1_000_000)}M`
+  if (a >= 1_000) return `${trimZero(v / 1_000)}k`
+  return `${v}`
+}
+const trimZero = (x: number) => x.toFixed(1).replace(/\.0$/, "")
+
 const tooltipStyle = {
   fontSize: 12,
   border: "1px solid #e7e5e4",
@@ -63,21 +72,44 @@ export function SimpleBarChart({
   yKey,
   color = "#e96047",
   height = 200,
+  xTickFormatter,
+  showAllTicks,
+  maxTickChars,
 }: {
   data: any[]
   xKey: string
   yKey: string
   color?: string
   height?: number
+  /** transform each x tick label (e.g. hour 13 -> "1 PM"); also used for the tooltip title */
+  xTickFormatter?: (v: any) => string
+  /** force every label to render instead of letting Recharts thin them */
+  showAllTicks?: boolean
+  /** truncate long axis labels to this many chars (tooltip keeps the full name) */
+  maxTickChars?: number
 }) {
+  const angled = showAllTicks && data.length > 6
+  const axisTick = xTickFormatter ?? (maxTickChars ? (v: any) => { const s = String(v); return s.length > maxTickChars ? s.slice(0, maxTickChars - 1) + "…" : s } : undefined)
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+      <BarChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: angled ? 22 : 0 }}>
         <CartesianGrid stroke={GRID} vertical={false} />
-        <XAxis dataKey={xKey} fontSize={11} tick={{ fill: TICK }} tickLine={false} axisLine={{ stroke: GRID }} />
-        <YAxis fontSize={11} tick={{ fill: TICK }} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+        <XAxis
+          dataKey={xKey}
+          fontSize={angled ? 10 : 11}
+          tick={{ fill: TICK }}
+          tickLine={false}
+          axisLine={{ stroke: GRID }}
+          interval={showAllTicks ? 0 : "preserveEnd"}
+          tickFormatter={axisTick}
+          angle={angled ? -35 : 0}
+          textAnchor={angled ? "end" : "middle"}
+          height={angled ? 58 : 30}
+        />
+        <YAxis fontSize={11} tick={{ fill: TICK }} tickLine={false} axisLine={false} tickFormatter={compactAxis} width={38} />
         <Tooltip
           formatter={(v: any) => (typeof v === "number" ? v.toLocaleString() : v)}
+          labelFormatter={xTickFormatter}
           contentStyle={tooltipStyle}
           cursor={{ fill: "rgba(233,96,71,0.07)" }}
         />

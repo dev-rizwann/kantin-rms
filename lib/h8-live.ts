@@ -458,6 +458,45 @@ export async function getH8DayOrdersLive(date: string): Promise<H8Order[]> {
 }
 
 // =========================================================================
+// DAY ITEMS — one date, aggregated per menu item (item, qty, amount).
+// This is the compact daily drill-down: on a 500-ticket day the order-by-order
+// view is unreadable, so the day expander shows this instead.
+// =========================================================================
+
+export interface H8DayItem { item: string; category: string | null; qty: number; sales: number; canceled: number }
+export interface H8DayItems { items: H8DayItem[]; totalQty: number; totalSales: number; distinctItems: number }
+
+export async function getH8DayItemsLive(date: string): Promise<H8DayItems> {
+  const rows = await prisma.$queryRaw<{ payload: any }[]>`
+    WITH si AS MATERIALIZED (
+      SELECT s.item_id, s.price, (cn.id IS NOT NULL) AS canceled,
+             COALESCE(it.title,'(unknown item)') AS item, cat.title AS category
+      FROM mp_itemsale s
+      LEFT JOIN mp_cancel cn ON cn.itemsale_id=s.id AND cn.kantin_slug=${K}
+      LEFT JOIN mp_item it ON it.id=s.item_id AND it.kantin_slug=${K}
+      LEFT JOIN mp_category cat ON cat.id=it.category_id AND cat.kantin_slug=${K}
+      WHERE s.kantin_slug=${K} AND s.sale_time::date = ${date}::date
+    )
+    SELECT json_build_object(
+      'items', (SELECT COALESCE(json_agg(x ORDER BY x.sales DESC, x.qty DESC),'[]'::json) FROM (
+        SELECT item, category,
+               COUNT(*) FILTER (WHERE NOT canceled) AS qty,
+               COALESCE(SUM(price) FILTER (WHERE NOT canceled),0) AS sales,
+               COUNT(*) FILTER (WHERE canceled) AS canceled
+        FROM si GROUP BY item, category) x),
+      'total_qty', (SELECT COUNT(*) FROM si WHERE NOT canceled),
+      'total_sales', (SELECT COALESCE(SUM(price),0) FROM si WHERE NOT canceled),
+      'distinct_items', (SELECT COUNT(DISTINCT item_id) FROM si WHERE NOT canceled)
+    ) AS payload
+  `
+  const p = rows[0]?.payload ?? {}
+  return {
+    items: (p.items ?? []).map((x: any) => ({ item: x.item, category: x.category ?? null, qty: n(x.qty), sales: n(x.sales), canceled: n(x.canceled) })),
+    totalQty: n(p.total_qty), totalSales: n(p.total_sales), distinctItems: n(p.distinct_items),
+  }
+}
+
+// =========================================================================
 // DAY DETAIL — one date drill-down (totals, categories, items, payments)
 // Single-date filter keeps it tiny & fast; materialized CTEs = plan-proof.
 // =========================================================================

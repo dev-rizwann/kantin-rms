@@ -2,15 +2,15 @@
 
 import { Fragment, useCallback, useState } from "react"
 import { money, num, shortDate } from "@/lib/format"
-import type { H8Order } from "@/lib/h8-live"
-import { OrderList } from "./OrderList"
+import type { H8DayItems } from "@/lib/h8-live"
+import { DayItems } from "./DayItems"
 
 export interface DailyRow {
   saleDate: string; tickets: number; gross: number; paymentsNet: number
   rounding: number; variance: number; voids: number; cancels: number; refunds: number
 }
 
-type DayState = { loading: boolean; error?: string; orders?: H8Order[] }
+type DayState = { loading: boolean; error?: string; data?: H8DayItems }
 
 const TH = "border-b border-stone-200 bg-stone-50/80 px-3 py-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-stone-400 whitespace-nowrap"
 
@@ -25,7 +25,7 @@ export function DailyLedger({ rows }: { rows: DailyRow[] }) {
     if (open === date) { setOpen(null); return }
     setOpen(date)
     setDays((d) => {
-      if (d[date]?.orders || d[date]?.loading) return d
+      if (d[date]?.data || d[date]?.loading) return d
       void load(date)
       return { ...d, [date]: { loading: true } }
     })
@@ -33,12 +33,12 @@ export function DailyLedger({ rows }: { rows: DailyRow[] }) {
 
   async function load(date: string) {
     try {
-      const res = await fetch(`/api/h8/day-orders?date=${date}`, { cache: "no-store" })
-      if (!res.ok) throw new Error(res.status === 403 ? "You don't have access to ticket detail." : `Could not load orders (${res.status}).`)
+      const res = await fetch(`/api/h8/day-items?date=${date}`, { cache: "no-store" })
+      if (!res.ok) throw new Error(res.status === 403 ? "You don't have access to sales detail." : `Could not load sales (${res.status}).`)
       const json = await res.json()
-      setDays((d) => ({ ...d, [date]: { loading: false, orders: json.orders ?? [] } }))
+      setDays((d) => ({ ...d, [date]: { loading: false, data: { items: json.items ?? [], totalQty: json.totalQty ?? 0, totalSales: json.totalSales ?? 0, distinctItems: json.distinctItems ?? 0 } } }))
     } catch (e) {
-      setDays((d) => ({ ...d, [date]: { loading: false, error: e instanceof Error ? e.message : "Could not load orders." } }))
+      setDays((d) => ({ ...d, [date]: { loading: false, error: e instanceof Error ? e.message : "Could not load sales." } }))
     }
   }
 
@@ -80,10 +80,10 @@ export function DailyLedger({ rows }: { rows: DailyRow[] }) {
                 </tr>
                 {isOpen && <tr><td colSpan={9} className="border-y border-stone-200 bg-stone-50/70 px-3 py-2.5">
                   {!state || state.loading
-                    ? <div className="py-4 text-center text-[12px] text-stone-400">Loading orders for {shortDate(r.saleDate)}…</div>
+                    ? <div className="py-4 text-center text-[12px] text-stone-400">Loading sales for {shortDate(r.saleDate)}…</div>
                     : state.error
                       ? <div className="py-4 text-center text-[12px] text-red-600">{state.error}</div>
-                      : <OrderList orders={state.orders ?? []} fullDayHref={`/h8/daily/${r.saleDate}`} />}
+                      : state.data && <DayItems data={state.data} fullDayHref={`/h8/daily/${r.saleDate}`} />}
                 </td></tr>}
               </Fragment>
             )

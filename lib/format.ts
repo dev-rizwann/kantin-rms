@@ -62,6 +62,15 @@ export function agoLabel(s: string | Date | null | undefined, now: number = Date
   return `${Math.round(hrs / 24)} d ago`
 }
 
+/** Hour-of-day (0–23) as a clock label: 0 -> "12 AM", 8 -> "8 AM", 13 -> "1 PM". */
+export function hourLabel(h: number | null | undefined): string {
+  if (h == null || isNaN(h)) return "—"
+  const hr = ((h % 24) + 24) % 24
+  const suffix = hr < 12 ? "AM" : "PM"
+  const twelve = hr % 12 === 0 ? 12 : hr % 12
+  return `${twelve} ${suffix}`
+}
+
 export function timeOnly(s: string | null | undefined): string {
   if (!s) return "—"
   const d = new Date(s)
