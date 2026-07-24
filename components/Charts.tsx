@@ -15,6 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { hourLabel } from "@/lib/format"
 
 // Kantin brand palette: coral first, then leaf green + warm accents
 const PALETTE = ["#e96047", "#80c048", "#d97706", "#0f766e", "#78716c", "#4f46e5", "#c026d3", "#65a30d"]
@@ -72,7 +73,7 @@ export function SimpleBarChart({
   yKey,
   color = "#e96047",
   height = 200,
-  xTickFormatter,
+  xFormat,
   showAllTicks,
   maxTickChars,
 }: {
@@ -81,14 +82,16 @@ export function SimpleBarChart({
   yKey: string
   color?: string
   height?: number
-  /** transform each x tick label (e.g. hour 13 -> "1 PM"); also used for the tooltip title */
-  xTickFormatter?: (v: any) => string
+  /** label style for the x axis. "hour" turns 13 into "1 PM". A plain string is
+   *  passed (not a function) because this crosses the server→client boundary. */
+  xFormat?: "hour"
   /** force every label to render instead of letting Recharts thin them */
   showAllTicks?: boolean
   /** truncate long axis labels to this many chars (tooltip keeps the full name) */
   maxTickChars?: number
 }) {
   const angled = showAllTicks && data.length > 6
+  const xTickFormatter = xFormat === "hour" ? hourLabel : undefined
   const axisTick = xTickFormatter ?? (maxTickChars ? (v: any) => { const s = String(v); return s.length > maxTickChars ? s.slice(0, maxTickChars - 1) + "…" : s } : undefined)
   return (
     <ResponsiveContainer width="100%" height={height}>

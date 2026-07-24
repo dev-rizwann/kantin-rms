@@ -2,7 +2,7 @@ import { Card, CardBody, CardHeader } from "@/components/Card"
 import { DonutChart, MiniLineChart, SimpleBarChart } from "@/components/Charts"
 import { PageHeader } from "@/components/PageHeader"
 import { KpiStrip, LedgerTable, SectionHead, type Kpi } from "@/components/ui"
-import { hourLabel, money, num, shortDate } from "@/lib/format"
+import { money, num, shortDate } from "@/lib/format"
 import { getH8OverviewLive } from "@/lib/h8-live"
 
 export const dynamic = "force-dynamic"
@@ -70,7 +70,7 @@ export default async function OverviewPage() {
         </Card>
         <Card>
           <CardHeader title="Sales by hour" sub="peak-band signal" />
-          <CardBody><SimpleBarChart data={d.hourly} xKey="hour_of_day" yKey="gross" xTickFormatter={hourLabel} showAllTicks /></CardBody>
+          <CardBody><SimpleBarChart data={d.hourly} xKey="hour_of_day" yKey="gross" xFormat="hour" showAllTicks /></CardBody>
         </Card>
       </div>
 

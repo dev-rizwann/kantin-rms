@@ -4,7 +4,7 @@ import { Card, CardBody, CardHeader } from "@/components/Card"
 import { SimpleBarChart } from "@/components/Charts"
 import { PageHeader } from "@/components/PageHeader"
 import { KpiStrip, LedgerTable, SectionHead, type Kpi } from "@/components/ui"
-import { hourLabel, money, num, shortDate } from "@/lib/format"
+import { money, num, shortDate } from "@/lib/format"
 import { getH8DayDetailLive, payLabel } from "@/lib/h8-live"
 import { DayOrdersLazy } from "../DayOrdersLazy"
 
@@ -61,7 +61,7 @@ export default async function DayDetailPage({ params }: { params: { date: string
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader title="Sales by hour" />
-          <CardBody><SimpleBarChart data={d.hourly} xKey="hour" yKey="gross" xTickFormatter={hourLabel} showAllTicks /></CardBody>
+          <CardBody><SimpleBarChart data={d.hourly} xKey="hour" yKey="gross" xFormat="hour" showAllTicks /></CardBody>
         </Card>
         <Card>
           <CardHeader title="Cashiers" />
