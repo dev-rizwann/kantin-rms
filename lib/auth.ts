@@ -24,20 +24,36 @@ declare module "next-auth/jwt" {
   }
 }
 
+/**
+ * Sign in with either a full email ("harun@iespl.org") or just the username
+ * part ("harun"). The bare form is only accepted when it identifies exactly
+ * one account — if two users share a local part across domains it is rejected
+ * rather than guessed, so a login can never resolve to the wrong person.
+ */
+async function resolveUser(identifier: string) {
+  const exact = await prisma.user.findUnique({ where: { email: identifier } })
+  if (exact || identifier.includes("@")) return exact
+
+  const matches = await prisma.user.findMany({
+    where: { email: { startsWith: `${identifier}@`, mode: "insensitive" } },
+    take: 2,
+  })
+  return matches.length === 1 ? matches[0] : null
+}
+
 export const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase().trim() },
-        })
+        const identifier = credentials.email.toLowerCase().trim()
+        const user = await resolveUser(identifier)
 
         if (!user || !user.isActive) return null
 

@@ -27,7 +27,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
       return
     }
     if (result.error) {
-      setError("Invalid email or password.")
+      setError("Invalid username or password.")
       return
     }
     router.push(callbackUrl)
@@ -38,12 +38,15 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-stone-700 mb-1">
-          Email
+          Username
         </label>
         <input
           id="email"
-          type="email"
+          type="text"
           autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          placeholder="harun"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
