@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { saveRecipe } from "./actions"
 
-type ProductOption = { id: string; name: string; kind: string; category: string; uomCode: string; unitCost: number | null }
+type ProductOption = { id: string; name: string; kind: string; category: string; uomCode: string; unitCost: number | null; fryerGramsPerUnit?: number | null }
 type PosOption = { id: string; title: string; category: string | null; price: number }
 type Existing = {
   id: string; name: string; kind: "SEMI_FINISHED" | "MENU"; outputProductId: string | null; outputQty: number; outputUomCode: string
@@ -60,7 +60,23 @@ export function RecipeForm({ kind, products, uoms, posItems, fryingRate, existin
   const [error, setError] = useState<string | null>(null)
   const label = "form-label"
 
-  const lineCost = (line: DraftLine) => line.kind === "PRODUCT" ? line.quantity * (productById.get(line.productId)?.unitCost ?? 0) : line.quantity * (line.kind === "FRYING_OIL" ? fryingRate : line.fixedUnitCost)
+  /** Grams entering the fryer, derived from the recipe's own fried ingredients.
+   *  Typing this by hand let it go stale whenever a portion changed. */
+  const friedGrams = useMemo(() => {
+    const parts: { name: string; grams: number }[] = []
+    for (const line of lines) {
+      if (line.kind !== "PRODUCT") continue
+      const p = productById.get(line.productId)
+      const per = p?.fryerGramsPerUnit
+      if (!p || per == null || per <= 0) continue
+      const g = (Number(line.quantity) || 0) * per
+      if (g > 0) parts.push({ name: p.name, grams: g })
+    }
+    return { total: parts.reduce((s, x) => s + x.grams, 0), parts }
+  }, [lines, productById])
+
+  const lineQty = (line: DraftLine) => line.kind === "FRYING_OIL" ? friedGrams.total : line.quantity
+  const lineCost = (line: DraftLine) => line.kind === "PRODUCT" ? line.quantity * (productById.get(line.productId)?.unitCost ?? 0) : lineQty(line) * (line.kind === "FRYING_OIL" ? fryingRate : line.fixedUnitCost)
   const previewCost = lines.reduce((sum, line) => sum + lineCost(line), 0)
   const cost = previewCost
   const foodCostPct = kind === "MENU" && sellPrice > 0 ? cost / sellPrice : null
@@ -112,7 +128,7 @@ export function RecipeForm({ kind, products, uoms, posItems, fryingRate, existin
     const result = await saveRecipe({
       id: existing?.id, name, kind, outputProductId: existing?.outputProductId ?? null, outputQty, outputUomCode,
       referenceSellPrice: kind === "MENU" ? sellPrice : null, targetFoodCostPct: target / 100, notes,
-      lines: lines.map((l) => l.kind === "PRODUCT" ? { kind: "PRODUCT" as const, productId: l.productId, quantity: l.quantity, uomCode: l.uomCode } : l.kind === "FRYING_OIL" ? { kind: "FRYING_OIL" as const, quantity: l.quantity } : { kind: "COST_ADJUSTMENT" as const, label: l.label, quantity: l.quantity, fixedUnitCost: l.fixedUnitCost }),
+      lines: lines.map((l) => l.kind === "PRODUCT" ? { kind: "PRODUCT" as const, productId: l.productId, quantity: l.quantity, uomCode: l.uomCode } : l.kind === "FRYING_OIL" ? { kind: "FRYING_OIL" as const, quantity: friedGrams.total } : { kind: "COST_ADJUSTMENT" as const, label: l.label, quantity: l.quantity, fixedUnitCost: l.fixedUnitCost }),
       aliases: kind === "MENU" ? aliases : [],
     })
     setBusy(false)
@@ -164,9 +180,11 @@ export function RecipeForm({ kind, products, uoms, posItems, fryingRate, existin
             {line.kind === "PRODUCT" ? <>
               <select className="form-control-sm" value={line.category} onChange={(e) => { const category = e.target.value; const p = products.find((x) => x.category === category); patchLine(line.key, { category, productId: p?.id ?? "", uomCode: p?.uomCode ?? "PIECE" }) }}>{categories.map((c) => <option key={c}>{c}</option>)}</select>
               <select className="form-control-sm font-medium" value={line.productId} onChange={(e) => { const p = productById.get(e.target.value); patchLine(line.key, { productId: e.target.value, category: p?.category ?? line.category, uomCode: p?.uomCode ?? line.uomCode }) }}>{products.filter((p) => p.category === line.category).map((p) => <option key={p.id} value={p.id}>{p.kind === "SEMI_FINISHED" ? "SEMI · " : ""}{p.name}</option>)}</select>
-            </> : line.kind === "FRYING_OIL" ? <div className="col-span-2 truncate text-[11.5px] font-medium text-amber-800" title="Uncooked food weight entering the fryer. Oil cost is automatic.">Deep-fry oil <span className="font-normal text-amber-700/70">· flat rate, raw weight into fryer</span></div>
+            </> : line.kind === "FRYING_OIL" ? <div className="col-span-2 truncate text-[11.5px] font-medium text-amber-800" title={friedGrams.parts.length ? "Auto: " + friedGrams.parts.map((p) => `${p.name} ${p.grams.toFixed(0)}g`).join(" + ") : "Add a fried ingredient (fries, nuggets, fillet, patty) and this fills in automatically."}>Deep-fry oil <span className="font-normal text-amber-700/70">· auto from {friedGrams.parts.length || "no"} fried input{friedGrams.parts.length === 1 ? "" : "s"}</span></div>
               : <input className="form-control-sm col-span-2" value={line.label} onChange={(e) => patchLine(line.key, { label: e.target.value })} placeholder="e.g. Labour allocation" />}
-            <input className="form-control-sm text-right font-semibold tabular-nums" type="number" min="0.000001" step="any" value={line.quantity} onChange={(e) => patchLine(line.key, { quantity: Number(e.target.value) })} />
+            {line.kind === "FRYING_OIL"
+              ? <input className="form-control-sm cursor-not-allowed text-right font-semibold tabular-nums text-amber-800" value={friedGrams.total.toFixed(1)} disabled title="Derived from the fried ingredients above" />
+              : <input className="form-control-sm text-right font-semibold tabular-nums" type="number" min="0.000001" step="any" value={line.quantity} onChange={(e) => patchLine(line.key, { quantity: Number(e.target.value) })} />}
             {line.kind === "PRODUCT" ? <span className="text-center text-[10px] font-semibold uppercase text-stone-400">{line.uomCode}</span>
               : line.kind === "FRYING_OIL" ? <span className="text-center text-[10px] font-semibold uppercase text-amber-700">GRAM</span>
               : <input className="form-control-sm text-right tabular-nums" type="number" min="0" step="any" value={line.fixedUnitCost} onChange={(e) => patchLine(line.key, { fixedUnitCost: Number(e.target.value) })} title="Cost per unit" />}

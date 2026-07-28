@@ -258,7 +258,7 @@ export async function getRecipeEditorData(kantinSlug: string, recipeId?: string)
     products: loaded.dbProducts.filter((p) => p.isCostingActive).map((p) => {
       const semiRecipeId = p.kind === "SEMI_FINISHED" ? loaded.graph.recipeByOutputProduct.get(p.id) : null
       const semiCost = semiRecipeId ? costRecipe(semiRecipeId, loaded.graph).costPerOutputUnit : null
-      return { id: p.id, name: p.name, kind: p.kind, category: p.costingCategory ?? (p.kind === "SEMI_FINISHED" ? "Semi-finished" : "Uncategorised"), uomCode: p.stockUomCode ?? p.unit, unitCost: semiCost ?? (p.avgCost == null ? null : toNum(p.avgCost)) }
+      return { id: p.id, name: p.name, kind: p.kind, category: p.costingCategory ?? (p.kind === "SEMI_FINISHED" ? "Semi-finished" : "Uncategorised"), uomCode: p.stockUomCode ?? p.unit, unitCost: semiCost ?? (p.avgCost == null ? null : toNum(p.avgCost)), fryerGramsPerUnit: p.fryerGramsPerUnit == null ? null : toNum(p.fryerGramsPerUnit) }
     }),
     uoms: uoms.map((u) => ({ code: u.code, name: u.name, dimension: u.dimension })),
     posItems: posItems.map((p) => ({ id: p.item_id.toString(), title: p.title, category: p.category, price: Number(p.current_price) })),

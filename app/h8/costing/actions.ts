@@ -209,6 +209,14 @@ export async function saveRecipe(input: RecipeSaveInput): Promise<ActionResult<{
         assertAcyclicProduct(outputProductId, dependencies)
       }
 
+      // Grams entering the fryer, derived from the fried ingredients on this
+      // recipe. Authoritative: a stale or tampered client value cannot persist.
+      const friedGrams = data.lines.reduce((sum, l) => {
+        if (l.kind !== "PRODUCT") return sum
+        const per = productById.get(l.productId)?.fryerGramsPerUnit
+        return per == null ? sum : sum + l.quantity * Number(per)
+      }, 0)
+
       const last = await tx.recipeVersion.aggregate({ where: { recipeId: recipe.id }, _max: { version: true } })
       const now = new Date()
       if (recipe.activeVersionId) await tx.recipeVersion.update({ where: { id: recipe.activeVersionId }, data: { effectiveTo: now } })
@@ -224,10 +232,12 @@ export async function saveRecipe(input: RecipeSaveInput): Promise<ActionResult<{
             return {
               kind: "COST_ADJUSTMENT" as const,
               label: FRYING_OIL_LABEL,
-              quantity: line.quantity,
+              // Recomputed server-side from the recipe's own fried ingredients;
+              // the client figure is display only and is not trusted here.
+              quantity: friedGrams,
               fixedUnitCost: fryingRate,
               sortOrder,
-              notes: line.notes || "Automatic oil cost: total fryer-input grams × flat rate.",
+              notes: line.notes || `Auto-derived: ${friedGrams.toFixed(1)} g of fried input × flat rate.`,
             }
           }
           return { kind: "COST_ADJUSTMENT" as const, label: line.label, quantity: line.quantity, fixedUnitCost: line.fixedUnitCost, sortOrder, notes: line.notes || null }

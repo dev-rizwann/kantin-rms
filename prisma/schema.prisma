@@ -260,6 +260,12 @@ model Product {
   standardPackPrice   Decimal?       @db.Decimal(14, 2)
   standardPackQty     Decimal?       @db.Decimal(20, 6)
   costingNote         String?
+  /// Grams of THIS ingredient that enter the fryer per one stock unit, so the
+  /// deep-fry oil charge can be derived instead of typed. Piece items carry
+  /// their piece weight (nugget 25.64 g); a semi like Cooked Fries carries the
+  /// raw weight behind one output gram (1000 g frozen -> 750 g cooked = 1.333).
+  /// NULL means the ingredient never goes in the fryer.
+  fryerGramsPerUnit   Decimal?       @db.Decimal(14, 6)
   costIsEstimated     Boolean        @default(false)
   isCostingActive     Boolean        @default(true)
   // misc
