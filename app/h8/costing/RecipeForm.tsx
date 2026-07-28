@@ -71,6 +71,27 @@ export function RecipeForm({ kind, products, uoms, posItems, fryingRate, existin
   const posPrice = primaryAlias ? posItems.find((p) => p.id === primaryAlias.posItemId)?.price ?? null : null
   const posFoodCostPct = posPrice != null && posPrice > 0 && cost > 0 ? cost / posPrice : null
 
+  // Plate weight: only edible input counts, so packaging and the oil allocation
+  // are excluded. KG/LITRE are normalised to g/ml; piece-based items have no
+  // weight on file, so they are reported separately rather than assumed to be 0.
+  const weight = useMemo(() => {
+    let grams = 0, ml = 0, pieces = 0
+    for (const line of lines) {
+      if (line.kind !== "PRODUCT") continue
+      const p = productById.get(line.productId)
+      if (!p || p.kind === "PACKAGING") continue
+      const q = Number(line.quantity) || 0
+      switch (line.uomCode) {
+        case "GRAM": grams += q; break
+        case "KG": grams += q * 1000; break
+        case "ML": ml += q; break
+        case "LITRE": ml += q * 1000; break
+        default: pieces += q
+      }
+    }
+    return { grams, ml, pieces }
+  }, [lines, productById])
+
   function addProductLine() {
     const category = categories[0] ?? ""
     const product = products.find((p) => p.category === category) ?? products[0]
@@ -118,7 +139,13 @@ export function RecipeForm({ kind, products, uoms, posItems, fryingRate, existin
 
       <section className="editor-card">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 bg-stone-50/60 px-3 py-1.5">
-          <h2 className="font-display text-[12.5px] font-semibold text-stone-900">Ingredients &amp; cost drivers <span className="ml-1 font-sans text-[10px] font-medium text-stone-400">{lines.length} line{lines.length === 1 ? "" : "s"}</span></h2>
+          <h2 className="font-display text-[12.5px] font-semibold text-stone-900">Ingredients &amp; cost drivers <span className="ml-1 font-sans text-[10px] font-medium text-stone-400">{lines.length} line{lines.length === 1 ? "" : "s"}</span>
+            {(weight.grams > 0 || weight.ml > 0 || weight.pieces > 0) && <span className="ml-2 font-sans text-[10px] font-semibold text-stone-500" title="Total edible input. Packaging and the oil allocation are excluded.">
+              {[weight.grams > 0 ? `${weight.grams.toLocaleString("en-PK", { maximumFractionDigits: 1 })} g` : null,
+                weight.ml > 0 ? `${weight.ml.toLocaleString("en-PK", { maximumFractionDigits: 1 })} ml` : null,
+                weight.pieces > 0 ? `${weight.pieces.toLocaleString("en-PK", { maximumFractionDigits: 2 })} pc` : null].filter(Boolean).join(" + ")}
+            </span>}
+          </h2>
           <div className="flex flex-wrap justify-end gap-1.5">
             <button type="button" onClick={addProductLine} className="rounded-md border border-coral-100 bg-coral-50 px-2 py-[3px] text-[10.5px] font-semibold text-coral-700 transition hover:bg-coral-100">+ Ingredient</button>
             <button type="button" onClick={addFryingLine} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-[3px] text-[10.5px] font-semibold text-amber-800 transition hover:bg-amber-100">+ Deep-fried</button>
@@ -152,14 +179,21 @@ export function RecipeForm({ kind, products, uoms, posItems, fryingRate, existin
 
       {kind === "MENU" && <section className="editor-card">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 bg-stone-50/60 px-3 py-1.5"><h2 className="font-display text-[12.5px] font-semibold text-stone-900">POS item mapping</h2><span className="rounded-full bg-stone-100 px-2 py-0 text-[9px] font-semibold uppercase leading-[16px] tracking-wider text-stone-500">{aliases.length} linked</span></div>
-        <div className="p-2.5"><div className="flex gap-2"><select className="form-control-sm" value={posToAdd} onChange={(e) => setPosToAdd(e.target.value)}><option value="">Choose an unmapped POS item…</option>{posItems.filter((p) => !aliases.some((a) => a.posItemId === p.id)).map((p) => <option key={p.id} value={p.id}>{p.title} · {p.category ?? "No category"} · Rs {p.price}</option>)}</select><button type="button" onClick={addPosAlias} disabled={!posToAdd} className="btn-secondary shrink-0 disabled:opacity-50">Link item</button></div>
-          <div className="mt-4 grid gap-2">{aliases.length === 0 ? <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/45 p-4 text-xs text-amber-800">No POS aliases yet. Link at least one item for price matching and theoretical usage.</div> : aliases.map((a, i) => <div key={`${a.posItemId}-${i}`} className={"flex flex-wrap items-center gap-3 rounded-xl border px-3.5 py-3 text-sm " + (a.isPrimary ? "border-leaf-200 bg-leaf-50/45" : "border-stone-200 bg-stone-50/55")}><label className="flex cursor-pointer items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500"><input className="accent-leaf-600" type="radio" name="primary" checked={a.isPrimary} onChange={() => setAliases((rows) => rows.map((x, j) => ({ ...x, isPrimary: j === i })))} /> {a.isPrimary ? "Primary price" : "Make primary"}</label><span className="min-w-40 flex-1 font-semibold text-stone-800">{a.title}</span><span className="rounded-md bg-white px-2 py-1 text-[10.5px] tabular-nums text-stone-400 ring-1 ring-stone-200">POS #{a.posItemId}</span><button type="button" onClick={() => setAliases((rows) => rows.filter((_, j) => j !== i))} className="grid h-7 w-7 place-items-center rounded-lg text-stone-300 hover:bg-red-50 hover:text-red-500" aria-label={`Remove ${a.title}`}>×</button></div>)}</div>
+        <div className="p-2.5"><div className="flex gap-1.5"><select className="form-control-sm" value={posToAdd} onChange={(e) => setPosToAdd(e.target.value)}><option value="">Choose an unmapped POS item…</option>{posItems.filter((p) => !aliases.some((a) => a.posItemId === p.id)).map((p) => <option key={p.id} value={p.id}>{p.title} · {p.category ?? "No category"} · Rs {p.price}</option>)}</select><button type="button" onClick={addPosAlias} disabled={!posToAdd} className="shrink-0 rounded-md border border-stone-200 bg-white px-2.5 py-[3px] text-[10.5px] font-semibold text-stone-600 transition hover:bg-stone-50 disabled:opacity-40">Link</button></div>
+          {aliases.length === 0 ? <div className="mt-2 rounded-md border border-dashed border-amber-200 bg-amber-50/45 px-2.5 py-1.5 text-[10.5px] text-amber-800">No POS aliases yet. Link at least one item for price matching and usage.</div>
+            : <div className="mt-2 divide-y divide-stone-100 rounded-md border border-stone-200">{aliases.map((a, i) => <div key={`${a.posItemId}-${i}`} className={"flex items-center gap-2 px-2 py-[3px] text-[11.5px] " + (a.isPrimary ? "bg-leaf-50/50" : "")}>
+              <input className="accent-leaf-600" type="radio" name="primary" checked={a.isPrimary} title={a.isPrimary ? "Primary price source" : "Make primary"} onChange={() => setAliases((rows) => rows.map((x, j) => ({ ...x, isPrimary: j === i })))} />
+              <span className="min-w-0 flex-1 truncate font-medium text-stone-800">{a.title}</span>
+              {a.isPrimary && <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-leaf-700">primary</span>}
+              <span className="shrink-0 text-[10px] tabular-nums text-stone-400">#{a.posItemId}</span>
+              <button type="button" onClick={() => setAliases((rows) => rows.filter((_, j) => j !== i))} className="shrink-0 text-[13px] leading-none text-stone-300 transition hover:text-red-500" aria-label={`Remove ${a.title}`}>×</button>
+            </div>)}</div>}
         </div>
       </section>}
     </div>
 
     <aside><div className="sticky top-6 overflow-hidden rounded-2xl bg-stone-900 text-white shadow-[0_20px_50px_rgba(28,25,23,.18)] ring-1 ring-black/5">
-      <div className="relative overflow-hidden p-4"><div className="absolute -right-10 -top-12 h-36 w-36 rounded-full bg-coral-500/25 blur-2xl" /><div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-leaf-500/15 blur-2xl" /><div className="relative"><div className="flex items-center justify-between"><div className="text-[9.5px] font-semibold uppercase tracking-[0.18em] text-white/45">{existing ? "Saved cost · revisioned" : "Draft cost preview"}</div><span className="h-2 w-2 rounded-full bg-leaf-400 shadow-[0_0_12px_rgba(151,204,87,.8)]" /></div><div className="mt-3 font-display text-[27px] font-semibold tracking-tight">Rs {cost.toLocaleString("en-PK", { maximumFractionDigits: 2 })}</div><div className="mt-1 text-xs text-white/45">{kind === "MENU" ? "Total cost per selling portion" : "Total cost of this preparation batch"}</div></div></div>
+      <div className="relative overflow-hidden p-4"><div className="absolute -right-10 -top-12 h-36 w-36 rounded-full bg-coral-500/25 blur-2xl" /><div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-leaf-500/15 blur-2xl" /><div className="relative"><div className="flex items-center justify-between"><div className="text-[9.5px] font-semibold uppercase tracking-[0.18em] text-white/45">{existing ? "Saved cost · revisioned" : "Draft cost preview"}</div><span className="h-2 w-2 rounded-full bg-leaf-400 shadow-[0_0_12px_rgba(151,204,87,.8)]" /></div><div className="mt-3 font-display text-[27px] font-semibold tracking-tight">Rs {cost.toLocaleString("en-PK", { maximumFractionDigits: 2 })}</div><div className="mt-1 flex flex-wrap items-baseline gap-x-2 text-xs text-white/45">{kind === "MENU" ? "Total cost per selling portion" : "Total cost of this preparation batch"}{(weight.grams > 0 || weight.ml > 0) && <span className="text-[10.5px] text-white/35" title="Total edible input, excluding packaging and the oil allocation">· {[weight.grams > 0 ? `${weight.grams.toLocaleString("en-PK", { maximumFractionDigits: 1 })} g` : null, weight.ml > 0 ? `${weight.ml.toLocaleString("en-PK", { maximumFractionDigits: 1 })} ml` : null].filter(Boolean).join(" + ")} on the plate</span>}</div></div></div>
       <div className="border-y border-white/10 bg-white/[0.035] px-4 py-3.5">
         {kind === "MENU" ? <><div className="flex items-center gap-3">{(foodCostPct != null && cost > 0) && <CostDonut pct={foodCostPct} />}<div className="flex flex-1 items-end justify-between"><div><div className="text-[9.5px] font-semibold uppercase tracking-wider text-white/40">Food cost</div><div className="mt-1 text-xl font-semibold tabular-nums">{foodCostPct == null ? "—" : `${(foodCostPct * 100).toFixed(1)}%`}</div></div><div className="text-right"><div className="text-[9.5px] font-semibold uppercase tracking-wider text-white/40">Gross margin</div><div className={(sellPrice - cost < 0 ? "text-red-300" : "text-leaf-300") + " mt-1 text-base font-semibold tabular-nums"}>{sellPrice > 0 ? `Rs ${(sellPrice - cost).toFixed(2)}` : "—"}</div></div></div></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={foodCostTone + " h-full rounded-full transition-all"} style={{ width: `${Math.min(100, (foodCostPct ?? 0) * 100)}%` }} /></div><div className="mt-1.5 flex justify-between text-[9.5px] text-white/30"><span>Target {target.toFixed(1)}%</span><span>Selling price Rs {sellPrice || "—"}</span></div></> : <div className="flex items-end justify-between"><div><div className="text-[9.5px] font-semibold uppercase tracking-wider text-white/40">Output cost</div><div className="mt-1 text-xl font-semibold tabular-nums">{outputQty > 0 ? `Rs ${(cost / outputQty).toFixed(4)}` : "—"}</div></div><span className="text-xs text-white/45">per {outputUomCode}</span></div>}
       </div>
