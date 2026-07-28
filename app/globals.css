@@ -143,6 +143,23 @@ body {
     @apply form-control text-right font-medium tabular-nums;
   }
 
+  /* dense variant for the recipe line grid, where every row must fit on screen */
+  .form-control-sm {
+    @apply w-full rounded-md border border-stone-200 bg-stone-50/65 px-1.5 py-[3px] text-[11.5px] leading-tight text-stone-900 outline-none transition;
+  }
+
+  .form-control-sm:hover {
+    @apply border-stone-300 bg-white;
+  }
+
+  .form-control-sm:focus {
+    @apply border-coral-400 bg-white ring-2 ring-coral-100/70;
+  }
+
+  .form-control-sm:disabled {
+    @apply cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400;
+  }
+
   .btn-primary {
     @apply inline-flex items-center justify-center rounded-lg bg-coral-600 px-3.5 py-2 text-[12.5px] font-semibold text-white transition hover:bg-coral-700 focus:outline-none focus:ring-4 focus:ring-coral-200 disabled:cursor-not-allowed disabled:opacity-55;
     box-shadow: 0 7px 18px rgba(213,78,53,.18), inset 0 1px 0 rgba(255,255,255,.2);
