@@ -38,7 +38,7 @@ export default async function DailyCashPage() {
       <KpiStrip items={kpis} />
 
       <section className="mb-6">
-        <SectionHead title="Daily summary" context="click a date to see its orders · variance is rounding-adjusted" />
+        <SectionHead title="Daily summary" context="click a date to see what sold · cash + credit + Food Panda = gross" />
         <DailyLedger rows={d.daily} />
       </section>
 

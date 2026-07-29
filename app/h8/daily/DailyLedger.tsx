@@ -8,6 +8,7 @@ import { DayItems } from "./DayItems"
 export interface DailyRow {
   saleDate: string; tickets: number; gross: number; paymentsNet: number
   rounding: number; variance: number; voids: number; cancels: number; refunds: number
+  cash: number; credit: number; foodPanda: number
 }
 
 type DayState = { loading: boolean; error?: string; data?: H8DayItems }
@@ -51,9 +52,9 @@ export function DailyLedger({ rows }: { rows: DailyRow[] }) {
             <th className={TH + " text-left"}>Date</th>
             <th className={TH + " text-right"}>Tickets</th>
             <th className={TH + " text-right"}>Gross</th>
-            <th className={TH + " text-right"}>Payments</th>
-            <th className={TH + " text-right"}>Rounding</th>
-            <th className={TH + " text-right"}>Variance</th>
+            <th className={TH + " text-right"}>Cash</th>
+            <th className={TH + " text-right"}>Credit</th>
+            <th className={TH + " text-right"}>Food Panda</th>
             <th className={TH + " text-right"}>Voids</th>
             <th className={TH + " text-right"}>Cancel/Refund</th>
           </tr>
@@ -61,8 +62,6 @@ export function DailyLedger({ rows }: { rows: DailyRow[] }) {
         <tbody className="divide-y divide-stone-100">
           {rows.length === 0 && <tr><td colSpan={9} className="px-3 py-10 text-center text-sm text-stone-500">No data</td></tr>}
           {rows.map((r) => {
-            const v = r.variance - r.rounding
-            const vCls = Math.abs(v) < 1 ? "text-stone-300" : Math.abs(v) < 50 ? "font-medium text-amber-600" : "font-medium text-red-600"
             const isOpen = open === r.saleDate
             const state = days[r.saleDate]
             return (
@@ -72,9 +71,9 @@ export function DailyLedger({ rows }: { rows: DailyRow[] }) {
                   <td className="px-3 py-1.5"><span className={"font-medium " + (isOpen ? "text-coral-800" : "text-coral-700")}>{shortDate(r.saleDate)}</span></td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-400">{num(r.tickets)}</td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right font-medium tabular-nums text-stone-900">{money(r.gross)}</td>
-                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-600">{money(r.paymentsNet)}</td>
-                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-400">{r.rounding ? money(r.rounding) : "—"}</td>
-                  <td className={"whitespace-nowrap px-3 py-1.5 text-right tabular-nums " + vCls}>{Math.abs(v) < 1 ? "—" : money(v)}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-700">{r.cash ? money(r.cash) : <span className="text-stone-300">—</span>}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-600">{r.credit ? money(r.credit) : <span className="text-stone-300">—</span>}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-600">{r.foodPanda ? money(r.foodPanda) : <span className="text-stone-300">—</span>}</td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">{r.voids ? <span className="font-medium text-amber-600">{num(r.voids)}</span> : <span className="text-stone-300">—</span>}</td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">{r.cancels + r.refunds ? <span className="font-medium text-red-600">{r.cancels}/{r.refunds}</span> : <span className="text-stone-300">—</span>}</td>
                 </tr>

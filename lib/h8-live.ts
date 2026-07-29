@@ -234,6 +234,9 @@ export async function getH8MenuLive(): Promise<H8MenuLive> {
 export interface H8DailyRow {
   saleDate: string; tickets: number; gross: number; paymentsNet: number
   rounding: number; variance: number; voids: number; cancels: number; refunds: number
+  /** cash + credit + foodPanda === paymentsNet, so nothing is unaccounted for.
+   *  credit = every non-cash, non-Food-Panda type (bank transfer, wallet, on-account). */
+  cash: number; credit: number; foodPanda: number
 }
 export interface H8SessionRow {
   sessionId: number; openTime: string; closeTime: string | null; openedBy: string | null
@@ -305,6 +308,11 @@ export async function getH8DailyCashLive(): Promise<H8DailyCashLive> {
           COALESCE(SUM(rounding) FILTER (WHERE NOT void),0) AS rounding,
           COUNT(*) FILTER (WHERE void) AS voids,
           COALESCE((SELECT net FROM daypay dp WHERE dp.d=co.d),0) AS payments_net,
+          -- Three buckets that always add up to payments_net: cash, Food Panda,
+          -- and everything else (bank transfer, wallet, on-account) as credit.
+          COALESCE((SELECT SUM(net) FROM pm WHERE pm.d=co.d AND pm.ptype=' -1'),0) AS cash,
+          COALESCE((SELECT SUM(net) FROM pm WHERE pm.d=co.d AND pm.ptype ILIKE '%food%panda%'),0) AS foodpanda,
+          COALESCE((SELECT SUM(net) FROM pm WHERE pm.d=co.d AND pm.ptype <> ' -1' AND pm.ptype NOT ILIKE '%food%panda%'),0) AS credit,
           COALESCE((SELECT nn FROM cancels c WHERE c.d=co.d),0) AS cancels,
           COALESCE((SELECT nn FROM refunds rf WHERE rf.d=co.d),0) AS refunds
         FROM co GROUP BY co.d ORDER BY co.d DESC LIMIT 60) x),
@@ -337,7 +345,7 @@ export async function getH8DailyCashLive(): Promise<H8DailyCashLive> {
   const p = rows[0]?.payload ?? {}
   const daily: H8DailyRow[] = (p.daily ?? []).map((x: any) => {
     const gross = n(x.gross), pay = n(x.payments_net)
-    return { saleDate: x.d, tickets: n(x.tickets), gross, paymentsNet: pay, rounding: n(x.rounding), variance: pay - gross, voids: n(x.voids), cancels: n(x.cancels), refunds: n(x.refunds) }
+    return { saleDate: x.d, tickets: n(x.tickets), gross, paymentsNet: pay, rounding: n(x.rounding), variance: pay - gross, voids: n(x.voids), cancels: n(x.cancels), refunds: n(x.refunds), cash: n(x.cash), credit: n(x.credit), foodPanda: n(x.foodpanda) }
   })
   const payTypeNames = Array.from(new Set((p.pay_matrix ?? []).flatMap((m: any) => Object.keys(m.by_type ?? {})))).sort() as string[]
   return {
