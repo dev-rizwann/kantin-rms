@@ -19,7 +19,7 @@ export default async function MenuPage() {
     <>
       <PageHeader
         title="Menu Performance"
-        chips={["Live", `through ${shortDate(d.meta.lastSaleDate)}`, "what's selling and what isn't"]}
+        chips={["what's selling and what isn't"]}
       />
       <KpiStrip items={kpis} />
       <MenuTabs categories={d.categories} items={d.items} />

@@ -62,6 +62,19 @@ export function agoLabel(s: string | Date | null | undefined, now: number = Date
   return `${Math.round(hrs / 24)} d ago`
 }
 
+/** A POS timestamp, which is a NAIVE local wall-clock (no zone) that Postgres
+ *  hands back as if it were UTC. Formatting in UTC prints the original clock
+ *  reading unshifted — do NOT use pktDateTime() on these or they move 5 hours. */
+export function posDateTime(s: string | Date | null | undefined): string {
+  if (!s) return "—"
+  const d = s instanceof Date ? s : new Date(s)
+  if (isNaN(d.getTime())) return String(s)
+  return d.toLocaleString("en-PK", {
+    timeZone: "UTC",
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true,
+  })
+}
+
 /** Hour-of-day (0–23) as a clock label: 0 -> "12 AM", 8 -> "8 AM", 13 -> "1 PM". */
 export function hourLabel(h: number | null | undefined): string {
   if (h == null || isNaN(h)) return "—"

@@ -36,7 +36,7 @@ export default async function DayDetailPage({ params }: { params: { date: string
     return (
       <>
         <div className="mb-2">{back}</div>
-        <PageHeader title={shortDate(date)} chips={["Daily detail", "live"]} />
+        <PageHeader title={shortDate(date)} chips={["Daily detail"]} />
         <div className="rounded-xl border border-stone-200 bg-white px-4 py-10 text-center text-sm text-stone-500">
           No sales recorded on this date.
         </div>
@@ -55,7 +55,7 @@ export default async function DayDetailPage({ params }: { params: { date: string
   return (
     <>
       <div className="mb-2">{back}</div>
-      <PageHeader title={shortDate(date)} chips={["Daily detail", "live"]} />
+      <PageHeader title={shortDate(date)} chips={["Daily detail"]} />
       <KpiStrip items={kpis} />
 
       <div className="mb-6 grid gap-4 lg:grid-cols-3">

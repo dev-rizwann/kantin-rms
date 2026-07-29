@@ -2,7 +2,7 @@ import Link from "next/link"
 import { ExportExcel } from "@/components/ExportExcel"
 import { PageHeader } from "@/components/PageHeader"
 import { KpiStrip, LedgerTable, SectionHead, Badge, type Kpi } from "@/components/ui"
-import { money, num, pktDateTime, shortDate, timeOnly } from "@/lib/format"
+import { money, num, pktDateTime, posDateTime, shortDate, timeOnly } from "@/lib/format"
 import { getH8DailyCashLive, payLabel } from "@/lib/h8-live"
 import { getSyncStatus } from "@/lib/sync-status"
 import { DailyLedger } from "./DailyLedger"
@@ -31,7 +31,7 @@ export default async function DailyCashPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader
           title="Daily & Cash"
-          chips={["Live", `through ${shortDate(d.meta.lastSaleDate)}`, `synced ${pktDateTime(sync.lastContactAt)} PKT`]}
+          chips={[`synced ${pktDateTime(sync.lastContactAt)}`, `last sale ${posDateTime(sync.lastTicketAt)}`]}
         />
         <div className="pt-1"><ExportExcel /></div>
       </div>
