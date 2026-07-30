@@ -17,7 +17,7 @@ export default async function CostingPage() {
     { label: "Missing prices", value: num(data.kpis.missingCosts), tone: data.kpis.missingCosts ? "bad" : "good" },
   ]
   return <>
-    <PageHeader title="Recipe Costing" chips={["Live costs", "versioned recipes", "POS-linked margins"]} />
+    <PageHeader title="Recipe Costing" />
     <KpiStrip items={kpis} />
     <section className="mb-7">
       <SectionHead title="Menu costing" context="Current recipe revision × current POS price" />
