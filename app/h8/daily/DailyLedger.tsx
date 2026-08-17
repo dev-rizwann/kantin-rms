@@ -18,7 +18,7 @@ const TH = "border-b border-stone-200 bg-stone-50/80 px-3 py-2 text-[10.5px] fon
 /** Daily summary where a row opens in place to show that day's tickets and the
  *  items on each. Ticket detail is fetched on first expand — the day query is
  *  ~1s against the JSON-backed mp_* views, too slow to prefetch for every row. */
-export function DailyLedger({ rows }: { rows: DailyRow[] }) {
+export function DailyLedger({ rows, slug = "h8" }: { rows: DailyRow[]; slug?: string }) {
   const [open, setOpen] = useState<string | null>(null)
   const [days, setDays] = useState<Record<string, DayState>>({})
 
@@ -34,7 +34,7 @@ export function DailyLedger({ rows }: { rows: DailyRow[] }) {
 
   async function load(date: string) {
     try {
-      const res = await fetch(`/api/h8/day-items?date=${date}`, { cache: "no-store" })
+      const res = await fetch(`/api/kantin/${slug}/day-items?date=${date}`, { cache: "no-store" })
       if (!res.ok) throw new Error(res.status === 403 ? "You don't have access to sales detail." : `Could not load sales (${res.status}).`)
       const json = await res.json()
       setDays((d) => ({ ...d, [date]: { loading: false, data: { items: json.items ?? [], totalQty: json.totalQty ?? 0, totalSales: json.totalSales ?? 0, distinctItems: json.distinctItems ?? 0 } } }))
@@ -82,7 +82,7 @@ export function DailyLedger({ rows }: { rows: DailyRow[] }) {
                     ? <div className="py-4 text-center text-[12px] text-stone-400">Loading sales for {shortDate(r.saleDate)}…</div>
                     : state.error
                       ? <div className="py-4 text-center text-[12px] text-red-600">{state.error}</div>
-                      : state.data && <DayItems data={state.data} fullDayHref={`/h8/daily/${r.saleDate}`} />}
+                      : state.data && <DayItems data={state.data} fullDayHref={`/${slug}/daily/${r.saleDate}`} />}
                 </td></tr>}
               </Fragment>
             )

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 
 export default async function LandingPage() {
   const session = await requireSession()
-  const h8 = await getH8LandingSummary()
+  const [h8, chak] = await Promise.all([getH8LandingSummary("h8"), getH8LandingSummary("chak-shahzad")])
 
   return (
     <main className="flex min-h-screen flex-col">
@@ -40,7 +40,7 @@ export default async function LandingPage() {
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {kantinList.map((k) => {
               const isLive = k.status === "live"
-              const data = k.slug === "h8" ? h8 : null
+              const data = k.slug === "h8" ? h8 : k.slug === "chak-shahzad" ? chak : null
               return (
                 <Link
                   key={k.slug}

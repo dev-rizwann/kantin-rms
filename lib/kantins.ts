@@ -11,7 +11,7 @@ export interface KantinMeta {
 
 export const kantins: Record<KantinSlug, KantinMeta> = {
   "h8": { slug: "h8", name: "H-8 Kantin", city: "Islamabad", short: "H-8", fullAddress: "H-8, Islamabad", status: "live" },
-  "chak-shahzad": { slug: "chak-shahzad", name: "Chak Shahzad Kantin", city: "Islamabad", short: "Chak Shahzad", fullAddress: "Chak Shahzad, Islamabad", status: "coming-soon" },
+  "chak-shahzad": { slug: "chak-shahzad", name: "Chak Shahzad Kantin", city: "Islamabad", short: "Chak Shahzad", fullAddress: "Chak Shahzad, Islamabad", status: "live" },
   "model-town-multan": { slug: "model-town-multan", name: "Model Town Kantin", city: "Multan", short: "Model Town", fullAddress: "Model Town, Multan", status: "coming-soon" },
 }
 

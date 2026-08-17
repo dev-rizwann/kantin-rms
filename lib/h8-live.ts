@@ -14,7 +14,7 @@ import { prisma } from "./prisma"
  * the plan. Also share one item-sales CTE rather than re-scanning mp_itemsale N times.
  */
 
-const K = "h8"
+const DEFAULT_KANTIN = "h8"
 const n = (v: any) => (v == null ? 0 : Number(v))
 
 /** MutfakPos internal payment-type codes -> readable labels. */
@@ -45,7 +45,8 @@ export interface H8OverviewLive {
   topItems30d: { item_id: number; item: string; category: string | null; qty: number; sales: number }[]
 }
 
-export async function getH8OverviewLive(): Promise<H8OverviewLive> {
+export async function getH8OverviewLive(slug: string = DEFAULT_KANTIN): Promise<H8OverviewLive> {
+  const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
       SELECT total, void, created, created::date AS d
@@ -143,7 +144,8 @@ export interface H8LandingSummary {
   totalGross: number; totalTickets: number; daysWithSales: number; lastSaleDate: string | null
 }
 
-export async function getH8LandingSummary(): Promise<H8LandingSummary> {
+export async function getH8LandingSummary(slug: string = DEFAULT_KANTIN): Promise<H8LandingSummary> {
+  const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (SELECT total, void, created::date AS d FROM mp_checkout WHERE kantin_slug=${K})
     SELECT json_build_object(
@@ -173,7 +175,8 @@ export interface H8MenuLive {
   items: H8MenuItem[]
 }
 
-export async function getH8MenuLive(): Promise<H8MenuLive> {
+export async function getH8MenuLive(slug: string = DEFAULT_KANTIN): Promise<H8MenuLive> {
+  const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH it AS MATERIALIZED (
       SELECT i.id, i.title, i.category_id, i.price, i.tax, i.status, i.on_sale, cat.title AS category
@@ -262,7 +265,8 @@ export interface H8DailyCashLive {
   payTypeNames: string[]
 }
 
-export async function getH8DailyCashLive(): Promise<H8DailyCashLive> {
+export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN): Promise<H8DailyCashLive> {
+  const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
       SELECT id, receipt_id, staff_id, total, rounding, void, created, created::date AS d
@@ -392,7 +396,8 @@ export interface H8Order {
   lines: H8OrderLine[]
 }
 
-export async function getH8DayOrdersLive(date: string): Promise<H8Order[]> {
+export async function getH8DayOrdersLive(date: string, slug: string = DEFAULT_KANTIN): Promise<H8Order[]> {
+  const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
       SELECT id, receipt_id, staff_id, total, rounding, void, created
@@ -474,7 +479,8 @@ export async function getH8DayOrdersLive(date: string): Promise<H8Order[]> {
 export interface H8DayItem { item: string; category: string | null; qty: number; sales: number; canceled: number }
 export interface H8DayItems { items: H8DayItem[]; totalQty: number; totalSales: number; distinctItems: number }
 
-export async function getH8DayItemsLive(date: string): Promise<H8DayItems> {
+export async function getH8DayItemsLive(date: string, slug: string = DEFAULT_KANTIN): Promise<H8DayItems> {
+  const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH si AS MATERIALIZED (
       SELECT s.item_id, s.price, (cn.id IS NOT NULL) AS canceled,
@@ -524,7 +530,8 @@ export interface H8DayDetail {
   hourly: { hour: number; gross: number }[]
 }
 
-export async function getH8DayDetailLive(date: string): Promise<H8DayDetail> {
+export async function getH8DayDetailLive(date: string, slug: string = DEFAULT_KANTIN): Promise<H8DayDetail> {
+  const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
       SELECT id, staff_id, total, rounding, void
