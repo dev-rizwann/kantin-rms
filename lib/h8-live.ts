@@ -263,10 +263,18 @@ export interface H8DailyCashLive {
   paymentTypes: H8PayTypeRow[]
   payMatrix: H8PayMatrixRow[]
   payTypeNames: string[]
+  /** Totals for the active date filter (whole history when no filter). */
+  range: { from: string | null; to: string | null; days: number; tickets: number; gross: number; cash: number; credit: number; foodPanda: number }
+  /** Rolling comparisons anchored to the latest sale date. */
+  periods: { anchor: string | null; last7: H8Period; prev7: H8Period; last30: H8Period; prev30: H8Period; mtd: H8Period; prevMtd: H8Period }
 }
+export interface H8Period { gross: number; tickets: number; from: string | null; to: string | null }
 
-export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN): Promise<H8DailyCashLive> {
+export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: { from?: string | null; to?: string | null }): Promise<H8DailyCashLive> {
   const K = slug
+  // Optional inclusive date filter for the daily table. Null = no bound.
+  const from = range?.from || null
+  const to = range?.to || null
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
       SELECT id, receipt_id, staff_id, total, rounding, void, created, created::date AS d
@@ -287,6 +295,7 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN): Promise
              COALESCE(SUM(total) FILTER (WHERE NOT void),0) AS gross
       FROM rcpt GROUP BY session_id
     ),
+    anchor AS MATERIALIZED (SELECT MAX(d) AS a FROM co WHERE NOT void),
     cancels AS MATERIALIZED (SELECT cancel_time::date AS d, COUNT(*) AS nn FROM mp_cancel WHERE kantin_slug=${K} GROUP BY 1),
     refunds AS MATERIALIZED (SELECT refund_on::date AS d, COUNT(*) AS nn FROM mp_refund WHERE kantin_slug=${K} GROUP BY 1),
     daypay AS MATERIALIZED (SELECT d, COALESCE(SUM(net),0) AS net FROM pm GROUP BY d),
@@ -319,7 +328,34 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN): Promise
           COALESCE((SELECT SUM(net) FROM pm WHERE pm.d=co.d AND pm.ptype <> ' -1' AND pm.ptype NOT ILIKE '%food%panda%'),0) AS credit,
           COALESCE((SELECT nn FROM cancels c WHERE c.d=co.d),0) AS cancels,
           COALESCE((SELECT nn FROM refunds rf WHERE rf.d=co.d),0) AS refunds
-        FROM co GROUP BY co.d ORDER BY co.d DESC LIMIT 60) x),
+        FROM co
+        WHERE (${from}::date IS NULL OR co.d >= ${from}::date) AND (${to}::date IS NULL OR co.d <= ${to}::date)
+        GROUP BY co.d ORDER BY co.d DESC LIMIT CASE WHEN ${from}::date IS NULL AND ${to}::date IS NULL THEN 60 END) x),
+      'range', (SELECT json_build_object(
+        'from', ${from}::date, 'to', ${to}::date,
+        'days', COUNT(DISTINCT d) FILTER (WHERE NOT void),
+        'tickets', COUNT(*) FILTER (WHERE NOT void),
+        'gross', COALESCE(SUM(total) FILTER (WHERE NOT void),0),
+        'cash', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype=' -1' AND (${from}::date IS NULL OR pm.d >= ${from}::date) AND (${to}::date IS NULL OR pm.d <= ${to}::date)),
+        'foodpanda', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype ILIKE '%food%panda%' AND (${from}::date IS NULL OR pm.d >= ${from}::date) AND (${to}::date IS NULL OR pm.d <= ${to}::date)),
+        'credit', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype <> ' -1' AND ptype NOT ILIKE '%food%panda%' AND (${from}::date IS NULL OR pm.d >= ${from}::date) AND (${to}::date IS NULL OR pm.d <= ${to}::date)))
+        FROM co WHERE (${from}::date IS NULL OR d >= ${from}::date) AND (${to}::date IS NULL OR d <= ${to}::date)),
+      -- Rolling comparisons anchored to the LATEST SALE DATE, not today, so a
+      -- school break does not read as a 100% collapse against a trading week.
+      'periods', (SELECT json_build_object(
+        'anchor', a,
+        'last7',   (SELECT json_build_object('gross',COALESCE(SUM(total),0),'tickets',COUNT(*),'from',a-6,'to',a) FROM co WHERE NOT void AND d BETWEEN a-6 AND a),
+        'prev7',   (SELECT json_build_object('gross',COALESCE(SUM(total),0),'tickets',COUNT(*),'from',a-13,'to',a-7) FROM co WHERE NOT void AND d BETWEEN a-13 AND a-7),
+        'last30',  (SELECT json_build_object('gross',COALESCE(SUM(total),0),'tickets',COUNT(*),'from',a-29,'to',a) FROM co WHERE NOT void AND d BETWEEN a-29 AND a),
+        'prev30',  (SELECT json_build_object('gross',COALESCE(SUM(total),0),'tickets',COUNT(*),'from',a-59,'to',a-30) FROM co WHERE NOT void AND d BETWEEN a-59 AND a-30),
+        'mtd',     (SELECT json_build_object('gross',COALESCE(SUM(total),0),'tickets',COUNT(*),'from',date_trunc('month',a)::date,'to',a) FROM co WHERE NOT void AND d >= date_trunc('month',a)::date AND d <= a),
+        'prev_mtd',(SELECT json_build_object('gross',COALESCE(SUM(total),0),'tickets',COUNT(*),
+                      'from',(date_trunc('month',a) - interval '1 month')::date,
+                      'to',  (date_trunc('month',a) - interval '1 month')::date + (a - date_trunc('month',a)::date))
+                    FROM co WHERE NOT void
+                      AND d >= (date_trunc('month',a) - interval '1 month')::date
+                      AND d <= (date_trunc('month',a) - interval '1 month')::date + (a - date_trunc('month',a)::date))
+      ) FROM anchor),
       'sessions', (SELECT COALESCE(json_agg(s ORDER BY s.start_time DESC),'[]'::json) FROM (
         SELECT se.id, se.start_time, se.close_time, se.petty_cash,
           (s1.fname||' '||s1.sname) AS opened_by,
@@ -377,6 +413,15 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN): Promise
       return { saleDate: m.d, byType, total: n(m.total) }
     }),
     payTypeNames,
+    range: {
+      from: p.range?.from ?? null, to: p.range?.to ?? null, days: n(p.range?.days), tickets: n(p.range?.tickets),
+      gross: n(p.range?.gross), cash: n(p.range?.cash), credit: n(p.range?.credit), foodPanda: n(p.range?.foodpanda),
+    },
+    periods: (() => {
+      const per = (x: any): H8Period => ({ gross: n(x?.gross), tickets: n(x?.tickets), from: x?.from ?? null, to: x?.to ?? null })
+      const q = p.periods ?? {}
+      return { anchor: q.anchor ?? null, last7: per(q.last7), prev7: per(q.prev7), last30: per(q.last30), prev30: per(q.prev30), mtd: per(q.mtd), prevMtd: per(q.prev_mtd) }
+    })(),
   }
 }
 

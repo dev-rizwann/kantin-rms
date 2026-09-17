@@ -129,11 +129,14 @@ export function Sidebar({ kantin, showCosting = false, sync }: { kantin: KantinM
       <img src="/brand/kantin-k.png" alt="" aria-hidden className="sidebar-watermark" />
       {/* Brand — the actual Kantin logo (its coral background blends into the sidebar) */}
       <div className="sidebar-brand px-4 pb-3 pt-4">
-        <img
-          src="/brand/kantin-logo.png"
-          alt="Kantin — Fresh Choices, Happy Breaks"
-          className="w-[154px] drop-shadow-[0_4px_10px_rgba(102,28,18,.13)]"
-        />
+        {/* Logo is the way back to the canteen picker */}
+        <Link href="/" title="All locations" className="inline-block rounded-md transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/40">
+          <img
+            src="/brand/kantin-logo.png"
+            alt="Kantin — back to all locations"
+            className="w-[154px] drop-shadow-[0_4px_10px_rgba(102,28,18,.13)]"
+          />
+        </Link>
         <div className="sidebar-brand-copy mt-1 flex items-center gap-2 px-1 text-[8.5px] font-semibold uppercase tracking-[0.2em] text-white/50">
           <span className="h-px w-4 bg-leaf-300/80" /> Kitchen intelligence
         </div>

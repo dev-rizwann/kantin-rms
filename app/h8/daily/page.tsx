@@ -6,11 +6,17 @@ import { money, num, pktDateTime, posDateTime, shortDate, timeOnly } from "@/lib
 import { getH8DailyCashLive, payLabel } from "@/lib/h8-live"
 import { getSyncStatus } from "@/lib/sync-status"
 import { DailyLedger } from "./DailyLedger"
+import { PeriodCards } from "@/components/PeriodCards"
+import { DateRangeFilter } from "@/components/DateRangeFilter"
 
 export const dynamic = "force-dynamic"
 
-export default async function DailyCashPage() {
-  const [d, sync] = await Promise.all([getH8DailyCashLive(), getSyncStatus("h8")])
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+export default async function DailyCashPage({ searchParams }: { searchParams?: { from?: string; to?: string } }) {
+  const from = searchParams?.from && DATE_RE.test(searchParams.from) ? searchParams.from : null
+  const to = searchParams?.to && DATE_RE.test(searchParams.to) ? searchParams.to : null
+  const [d, sync] = await Promise.all([getH8DailyCashLive("h8", { from, to }), getSyncStatus("h8")])
   const k = d.kpis
   const deltaPct = k.prevGross > 0 ? ((k.todayGross - k.prevGross) / k.prevGross) * 100 : null
 
@@ -36,9 +42,11 @@ export default async function DailyCashPage() {
         <div className="pt-1"><ExportExcel /></div>
       </div>
       <KpiStrip items={kpis} />
+      <PeriodCards periods={d.periods} />
 
       <section className="mb-6">
         <SectionHead title="Daily summary" context="click a date to see what sold · cash + credit + Food Panda = gross" />
+        <DateRangeFilter anchor={d.periods.anchor} totals={d.range} />
         <DailyLedger rows={d.daily} />
       </section>
 
