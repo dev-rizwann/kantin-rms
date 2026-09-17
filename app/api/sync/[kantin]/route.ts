@@ -75,15 +75,33 @@ export async function POST(req: NextRequest, ctx: { params: { kantin: string } }
   const watermarks: Record<string, number | null> = {}
   let totalRows = 0
   let totalBytes = 0
+  let skippedIdentical = 0
 
   for (const b of parsed.data.batches) {
-    const payloadBytes = Buffer.byteLength(JSON.stringify(b.rows), "utf8")
+    const payloadJson = JSON.stringify(b.rows)
+    const payloadBytes = Buffer.byteLength(payloadJson, "utf8")
     totalRows += b.rows.length
     totalBytes += payloadBytes
 
     await prisma.$transaction(async (tx) => {
-      // Insert the batch (skip empty batches — we still record the watermark)
+      // Reference tables (ITEM, CATEGORY, STAFF, SESSION, ...) arrive as a full
+      // snapshot every hour, and most hours nothing in them changed. Storing an
+      // identical copy adds nothing the mp_* views can use (they take the newest
+      // row per id) but makes every view expand one more batch of JSON — this
+      // is what grew sync_batch to 11k batches. jsonb equality is semantic, so
+      // key order and whitespace do not matter.
+      let identical = false
       if (b.rows.length > 0) {
+        const prev = await tx.$queryRaw<{ same: boolean }[]>`
+          SELECT rows = ${payloadJson}::jsonb AS same
+          FROM sync_batch WHERE "kantinSlug" = ${kantinSlug} AND "table" = ${b.table}
+          ORDER BY "receivedAt" DESC LIMIT 1`
+        identical = prev[0]?.same === true
+        if (identical) skippedIdentical++
+      }
+      const store = b.rows.length > 0 && !identical
+      // Insert the batch (skip empty or unchanged batches — we still record the watermark)
+      if (store) {
         await tx.syncBatch.create({
           data: {
             kantinSlug,
@@ -102,16 +120,16 @@ export async function POST(req: NextRequest, ctx: { params: { kantin: string } }
         update: {
           lastSeenId: newHigh,
           lastSyncAt: new Date(),
-          totalBatches: { increment: b.rows.length > 0 ? 1 : 0 },
-          totalRows: { increment: b.rows.length },
+          totalBatches: { increment: store ? 1 : 0 },
+          totalRows: { increment: store ? b.rows.length : 0 },
         },
         create: {
           kantinSlug,
           tableName: b.table,
           lastSeenId: newHigh,
           lastSyncAt: new Date(),
-          totalBatches: b.rows.length > 0 ? 1 : 0,
-          totalRows: b.rows.length,
+          totalBatches: store ? 1 : 0,
+          totalRows: store ? b.rows.length : 0,
         },
       })
     })
@@ -133,6 +151,7 @@ export async function POST(req: NextRequest, ctx: { params: { kantin: string } }
       tables: parsed.data.batches.length,
       rows: totalRows,
       bytes: totalBytes,
+      skippedIdentical,
       durationMs,
     },
     watermarks,

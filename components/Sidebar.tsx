@@ -8,22 +8,40 @@ import type { SyncStatus as SyncStatusData } from "@/lib/sync-status"
 import { SyncStatus } from "./SyncStatus"
 import { UserMenu } from "./UserMenu"
 
-type NavItem = { sub: string; label: string; icon: IconName }
+/** `sub` is appended to the kantin base; `href` is an absolute route instead. */
+type NavItem = { sub: string; label: string; icon: IconName; href?: string }
+
+const homeNav: NavItem = { sub: "", href: "/", label: "Home", icon: "home" }
 
 const reportsNav: NavItem[] = [
   { sub: "", label: "Overview", icon: "chart" },
   { sub: "/menu", label: "Menu Performance", icon: "tag" },
   { sub: "/daily", label: "Daily & Cash", icon: "banknote" },
+  { sub: "/cashiers", label: "Cashiers & Z-report", icon: "users" },
 ]
 
 const operationsNav: NavItem[] = [
   { sub: "/costing", label: "Recipe Costing", icon: "calculator" },
 ]
 
-type IconName = "chart" | "tag" | "banknote" | "archive" | "clipboard" | "truck" | "package" | "list" | "calculator"
+type IconName = "home" | "users" | "chart" | "tag" | "banknote" | "archive" | "clipboard" | "truck" | "package" | "list" | "calculator"
 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, React.ReactNode> = {
+    home: (
+      <>
+        <path d="M3 10.5 12 3l9 7.5" />
+        <path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" />
+      </>
+    ),
+    users: (
+      <>
+        <circle cx="9" cy="8" r="3.2" />
+        <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+        <circle cx="17" cy="9" r="2.4" />
+        <path d="M21.5 19a5 5 0 0 0-4.5-4.9" />
+      </>
+    ),
     chart: (
       <>
         <line x1="5" y1="20" x2="5" y2="11" />
@@ -101,9 +119,9 @@ export function Sidebar({ kantin, showCosting = false, sync }: { kantin: KantinM
   const path = usePathname() ?? ""
   const base = `/${kantin.slug}`
 
-  function Item({ sub, label, icon }: NavItem) {
-    const href = `${base}${sub}` || "/"
-    const active = sub === "" ? path === base || path === base + "/" : path.startsWith(href)
+  function Item({ sub, label, icon, href: abs }: NavItem) {
+    const href = abs ?? `${base}${sub}`
+    const active = abs ? path === abs : sub === "" ? path === base || path === base + "/" : path.startsWith(href)
     return (
       <Link
         href={href}
@@ -144,6 +162,8 @@ export function Sidebar({ kantin, showCosting = false, sync }: { kantin: KantinM
 
       {/* Nav */}
       <nav className="sidebar-nav scrollbar-thin mt-2 flex-1 space-y-4 overflow-y-auto px-3.5 pb-4 pt-2">
+        {/* Home sits above the sections: it leaves this kantin for the picker */}
+        <div className="space-y-px"><Item {...homeNav} /></div>
         <div>
           <div className="sidebar-section-label flex items-center gap-1.5 px-2 pb-1 text-[8.5px] font-semibold uppercase tracking-[0.2em] text-white/45"><span className="h-1 w-1 rounded-full bg-leaf-300/80 shadow-[0_0_6px_rgba(177,218,124,.8)]" />Reports</div>
           <div className="space-y-px">{reportsNav.map((i) => <Item key={i.sub} {...i} />)}</div>

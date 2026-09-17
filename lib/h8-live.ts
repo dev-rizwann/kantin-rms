@@ -49,8 +49,17 @@ export async function getH8OverviewLive(slug: string = DEFAULT_KANTIN): Promise<
   const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
-      SELECT total, void, created, created::date AS d
+      SELECT receipt_id, total, void, created, created::date AS d
       FROM mp_checkout WHERE kantin_slug=${K}
+    ),
+    -- Per-session ticket totals, built ONCE. The previous per-session correlated
+    -- subquery re-expanded mp_checkout for every receipt row (454 rescans of a
+    -- 60k-row JSON view = 29 of the 31 seconds this page used to take).
+    sess_tot AS MATERIALIZED (
+      SELECT r.session_id, COUNT(*) AS tickets, COALESCE(SUM(c.total),0) AS gross_total
+      FROM mp_receipt r JOIN co c ON c.receipt_id=r.id
+      WHERE r.kantin_slug=${K} AND NOT c.void
+      GROUP BY r.session_id
     ),
     si AS MATERIALIZED (
       SELECT s.id, s.item_id, s.price, s.sale_time,
@@ -106,9 +115,10 @@ export async function getH8OverviewLive(slug: string = DEFAULT_KANTIN): Promise<
           FROM si WHERE NOT canceled GROUP BY hr ORDER BY hr) h),
       'open_sessions', (SELECT COALESCE(json_agg(os),'[]'::json) FROM (
           SELECT (st.fname||' '||st.sname) AS opened_by, se.start_time AS open_time,
-            (SELECT COUNT(*) FROM mp_receipt r JOIN mp_checkout c ON c.receipt_id=r.id AND c.kantin_slug=${K} WHERE r.session_id=se.id AND r.kantin_slug=${K} AND NOT c.void) AS tickets,
-            (SELECT COALESCE(SUM(c.total),0) FROM mp_receipt r JOIN mp_checkout c ON c.receipt_id=r.id AND c.kantin_slug=${K} WHERE r.session_id=se.id AND r.kantin_slug=${K} AND NOT c.void) AS gross_total
-          FROM mp_session se LEFT JOIN mp_staff st ON st.id=se.staff_start_id AND st.kantin_slug=${K}
+            COALESCE(t.tickets,0) AS tickets, COALESCE(t.gross_total,0) AS gross_total
+          FROM mp_session se
+          LEFT JOIN mp_staff st ON st.id=se.staff_start_id AND st.kantin_slug=${K}
+          LEFT JOIN sess_tot t ON t.session_id=se.id
           WHERE se.kantin_slug=${K} AND se.close_time IS NULL ORDER BY se.start_time DESC) os),
       'top_items_30d', (SELECT COALESCE(json_agg(ti ORDER BY ti.sales DESC),'[]'::json) FROM (
           SELECT item_id, item, category, COUNT(*) AS qty, COALESCE(SUM(price),0) AS sales
@@ -251,95 +261,101 @@ export interface H8CashierRow {
 }
 export interface H8PayTypeRow { paymentType: string; count: number; tendered: number; changeDue: number; netPaid: number }
 export interface H8PayMatrixRow { saleDate: string; byType: Record<string, number>; total: number }
+/** Totals for the active date filter (whole history when no filter).
+ *  first/last are the earliest and latest selling days actually inside it. */
+export interface H8RangeTotals {
+  from: string | null; to: string | null; first: string | null; last: string | null
+  days: number; tickets: number; gross: number; cash: number; credit: number; foodPanda: number
+  voids: number; cancels: number; refunds: number
+}
 export interface H8DailyCashLive {
   meta: { lastSaleDate: string | null }
-  kpis: {
-    todayGross: number; todayTickets: number; prevGross: number; prevDate: string | null; todayDate: string | null
-    cashNet: number; nonCashNet: number; openSessions: number; walkInTickets: number; namedTickets: number
-  }
   daily: H8DailyRow[]
-  sessions: H8SessionRow[]
-  cashiers: H8CashierRow[]
+  /** Payment-type breakdown and per-day split, limited to the same filter as `daily`. */
   paymentTypes: H8PayTypeRow[]
   payMatrix: H8PayMatrixRow[]
   payTypeNames: string[]
-  /** Totals for the active date filter (whole history when no filter). */
-  range: { from: string | null; to: string | null; days: number; tickets: number; gross: number; cash: number; credit: number; foodPanda: number }
+  range: H8RangeTotals
   /** Rolling comparisons anchored to the latest sale date. */
   periods: { anchor: string | null; last7: H8Period; prev7: H8Period; last30: H8Period; prev30: H8Period; mtd: H8Period; prevMtd: H8Period }
 }
 export interface H8Period { gross: number; tickets: number; from: string | null; to: string | null }
+/** Cashier sessions (Z-report) and per-cashier accountability. Its own page. */
+export interface H8CashiersLive {
+  openSessions: number
+  sessions: H8SessionRow[]
+  cashiers: H8CashierRow[]
+}
 
 export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: { from?: string | null; to?: string | null }): Promise<H8DailyCashLive> {
   const K = slug
-  // Optional inclusive date filter for the daily table. Null = no bound.
+  // Optional inclusive date filter. Null = no bound.
   const from = range?.from || null
   const to = range?.to || null
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
-      SELECT id, receipt_id, staff_id, total, rounding, void, created, created::date AS d
+      SELECT total, rounding, void, created::date AS d
       FROM mp_checkout WHERE kantin_slug=${K}
     ),
     pm AS MATERIALIZED (
-      SELECT p.staff_id, p.paid, p.balance, p.payment_time::date AS d, pt.title AS ptype, (p.paid - p.balance) AS net
+      SELECT p.payment_time::date AS d, pt.title AS ptype, p.paid, p.balance, (p.paid - p.balance) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
       WHERE p.kantin_slug=${K} AND p.payment_time IS NOT NULL
     ),
-    rcpt AS MATERIALIZED (
-      SELECT r.session_id, r.customer_id, c.total, c.void
-      FROM mp_receipt r JOIN co c ON c.receipt_id = r.id
-      WHERE r.kantin_slug=${K}
+    -- Aggregate to one row per day FIRST. The daily table and the range totals
+    -- then join ~100 day rows instead of rescanning 60k payments once per day.
+    dayco AS MATERIALIZED (
+      SELECT d,
+        COUNT(*) FILTER (WHERE NOT void) AS tickets,
+        COALESCE(SUM(total) FILTER (WHERE NOT void),0) AS gross,
+        COALESCE(SUM(rounding) FILTER (WHERE NOT void),0) AS rounding,
+        COUNT(*) FILTER (WHERE void) AS voids
+      FROM co GROUP BY d
     ),
-    sess_agg AS MATERIALIZED (
-      SELECT session_id, COUNT(*) FILTER (WHERE NOT void) AS tickets,
-             COALESCE(SUM(total) FILTER (WHERE NOT void),0) AS gross
-      FROM rcpt GROUP BY session_id
+    daypay AS MATERIALIZED (
+      SELECT d, COALESCE(SUM(net),0) AS net,
+        -- Three buckets that always add up to net: cash, Food Panda, and
+        -- everything else (bank transfer, wallet, on-account) as credit.
+        COALESCE(SUM(net) FILTER (WHERE ptype=' -1'),0) AS cash,
+        COALESCE(SUM(net) FILTER (WHERE ptype ILIKE '%food%panda%'),0) AS foodpanda,
+        COALESCE(SUM(net) FILTER (WHERE ptype<>' -1' AND ptype NOT ILIKE '%food%panda%'),0) AS credit
+      FROM pm GROUP BY d
     ),
-    anchor AS MATERIALIZED (SELECT MAX(d) AS a FROM co WHERE NOT void),
     cancels AS MATERIALIZED (SELECT cancel_time::date AS d, COUNT(*) AS nn FROM mp_cancel WHERE kantin_slug=${K} GROUP BY 1),
     refunds AS MATERIALIZED (SELECT refund_on::date AS d, COUNT(*) AS nn FROM mp_refund WHERE kantin_slug=${K} GROUP BY 1),
-    daypay AS MATERIALIZED (SELECT d, COALESCE(SUM(net),0) AS net FROM pm GROUP BY d),
-    lastday AS MATERIALIZED (SELECT MAX(d) AS d FROM co WHERE NOT void),
-    prevday AS MATERIALIZED (SELECT MAX(d) AS d FROM co WHERE NOT void AND d < (SELECT d FROM lastday))
+    days AS MATERIALIZED (
+      SELECT dc.d, dc.tickets, dc.gross, dc.rounding, dc.voids,
+        COALESCE(dp.net,0) AS payments_net, COALESCE(dp.cash,0) AS cash,
+        COALESCE(dp.foodpanda,0) AS foodpanda, COALESCE(dp.credit,0) AS credit,
+        COALESCE(cn.nn,0) AS cancels, COALESCE(rf.nn,0) AS refunds
+      FROM dayco dc
+      LEFT JOIN daypay dp ON dp.d=dc.d
+      LEFT JOIN cancels cn ON cn.d=dc.d
+      LEFT JOIN refunds rf ON rf.d=dc.d
+    ),
+    -- Rows inside the active filter (all of history when unbounded).
+    sel AS MATERIALIZED (
+      SELECT * FROM days
+      WHERE (${from}::date IS NULL OR d >= ${from}::date) AND (${to}::date IS NULL OR d <= ${to}::date)
+    ),
+    pmsel AS MATERIALIZED (
+      SELECT * FROM pm
+      WHERE (${from}::date IS NULL OR d >= ${from}::date) AND (${to}::date IS NULL OR d <= ${to}::date)
+    ),
+    anchor AS MATERIALIZED (SELECT MAX(d) AS a FROM co WHERE NOT void)
     SELECT json_build_object(
-      'meta', json_build_object('last_sale', (SELECT d FROM lastday)),
-      'kpis', json_build_object(
-        'today_date', (SELECT d FROM lastday),
-        'today_gross', (SELECT COALESCE(SUM(total),0) FROM co WHERE NOT void AND d=(SELECT d FROM lastday)),
-        'today_tickets', (SELECT COUNT(*) FROM co WHERE NOT void AND d=(SELECT d FROM lastday)),
-        'prev_date', (SELECT d FROM prevday),
-        'prev_gross', (SELECT COALESCE(SUM(total),0) FROM co WHERE NOT void AND d=(SELECT d FROM prevday)),
-        'cash_net', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype=' -1'),
-        'noncash_net', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype<>' -1'),
-        'open_sessions', (SELECT COUNT(*) FROM mp_session WHERE kantin_slug=${K} AND close_time IS NULL),
-        'walkin_tickets', (SELECT COUNT(*) FROM rcpt WHERE NOT void AND customer_id IS NULL),
-        'named_tickets', (SELECT COUNT(*) FROM rcpt WHERE NOT void AND customer_id IS NOT NULL)),
+      'meta', json_build_object('last_sale', (SELECT a FROM anchor)),
       'daily', (SELECT COALESCE(json_agg(x ORDER BY x.d DESC),'[]'::json) FROM (
-        SELECT co.d,
-          COUNT(*) FILTER (WHERE NOT void) AS tickets,
-          COALESCE(SUM(total) FILTER (WHERE NOT void),0) AS gross,
-          COALESCE(SUM(rounding) FILTER (WHERE NOT void),0) AS rounding,
-          COUNT(*) FILTER (WHERE void) AS voids,
-          COALESCE((SELECT net FROM daypay dp WHERE dp.d=co.d),0) AS payments_net,
-          -- Three buckets that always add up to payments_net: cash, Food Panda,
-          -- and everything else (bank transfer, wallet, on-account) as credit.
-          COALESCE((SELECT SUM(net) FROM pm WHERE pm.d=co.d AND pm.ptype=' -1'),0) AS cash,
-          COALESCE((SELECT SUM(net) FROM pm WHERE pm.d=co.d AND pm.ptype ILIKE '%food%panda%'),0) AS foodpanda,
-          COALESCE((SELECT SUM(net) FROM pm WHERE pm.d=co.d AND pm.ptype <> ' -1' AND pm.ptype NOT ILIKE '%food%panda%'),0) AS credit,
-          COALESCE((SELECT nn FROM cancels c WHERE c.d=co.d),0) AS cancels,
-          COALESCE((SELECT nn FROM refunds rf WHERE rf.d=co.d),0) AS refunds
-        FROM co
-        WHERE (${from}::date IS NULL OR co.d >= ${from}::date) AND (${to}::date IS NULL OR co.d <= ${to}::date)
-        GROUP BY co.d ORDER BY co.d DESC LIMIT CASE WHEN ${from}::date IS NULL AND ${to}::date IS NULL THEN 60 END) x),
+        SELECT * FROM sel ORDER BY d DESC
+        LIMIT CASE WHEN ${from}::date IS NULL AND ${to}::date IS NULL THEN 60 END) x),
       'range', (SELECT json_build_object(
         'from', ${from}::date, 'to', ${to}::date,
-        'days', COUNT(DISTINCT d) FILTER (WHERE NOT void),
-        'tickets', COUNT(*) FILTER (WHERE NOT void),
-        'gross', COALESCE(SUM(total) FILTER (WHERE NOT void),0),
-        'cash', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype=' -1' AND (${from}::date IS NULL OR pm.d >= ${from}::date) AND (${to}::date IS NULL OR pm.d <= ${to}::date)),
-        'foodpanda', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype ILIKE '%food%panda%' AND (${from}::date IS NULL OR pm.d >= ${from}::date) AND (${to}::date IS NULL OR pm.d <= ${to}::date)),
-        'credit', (SELECT COALESCE(SUM(net),0) FROM pm WHERE ptype <> ' -1' AND ptype NOT ILIKE '%food%panda%' AND (${from}::date IS NULL OR pm.d >= ${from}::date) AND (${to}::date IS NULL OR pm.d <= ${to}::date)))
-        FROM co WHERE (${from}::date IS NULL OR d >= ${from}::date) AND (${to}::date IS NULL OR d <= ${to}::date)),
+        'first', MIN(d) FILTER (WHERE tickets > 0), 'last', MAX(d) FILTER (WHERE tickets > 0),
+        'days', COUNT(*) FILTER (WHERE tickets > 0),
+        'tickets', COALESCE(SUM(tickets),0), 'gross', COALESCE(SUM(gross),0),
+        'cash', COALESCE(SUM(cash),0), 'foodpanda', COALESCE(SUM(foodpanda),0), 'credit', COALESCE(SUM(credit),0),
+        'voids', COALESCE(SUM(voids),0), 'cancels', COALESCE(SUM(cancels),0), 'refunds', COALESCE(SUM(refunds),0))
+        FROM sel),
       -- Rolling comparisons anchored to the LATEST SALE DATE, not today, so a
       -- school break does not read as a 100% collapse against a trading week.
       'periods', (SELECT json_build_object(
@@ -356,30 +372,15 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
                       AND d >= (date_trunc('month',a) - interval '1 month')::date
                       AND d <= (date_trunc('month',a) - interval '1 month')::date + (a - date_trunc('month',a)::date))
       ) FROM anchor),
-      'sessions', (SELECT COALESCE(json_agg(s ORDER BY s.start_time DESC),'[]'::json) FROM (
-        SELECT se.id, se.start_time, se.close_time, se.petty_cash,
-          (s1.fname||' '||s1.sname) AS opened_by,
-          CASE WHEN s2.fname IS NULL THEN NULL ELSE s2.fname||' '||s2.sname END AS closed_by,
-          COALESCE(sg.tickets,0) AS tickets, COALESCE(sg.gross,0) AS gross
-        FROM mp_session se
-        LEFT JOIN sess_agg sg ON sg.session_id = se.id
-        LEFT JOIN mp_staff s1 ON s1.id=se.staff_start_id AND s1.kantin_slug=${K}
-        LEFT JOIN mp_staff s2 ON s2.id=se.staff_close_id AND s2.kantin_slug=${K}
-        WHERE se.kantin_slug=${K} ORDER BY se.start_time DESC LIMIT 30) s),
-      'cashiers', (SELECT COALESCE(json_agg(c ORDER BY c.gross DESC),'[]'::json) FROM (
-        SELECT (st.fname||' '||st.sname) AS cashier, COUNT(*) AS tickets, COALESCE(SUM(co.total),0) AS gross,
-          COUNT(DISTINCT co.d) AS days_worked, MIN(co.created) AS first_ticket, MAX(co.created) AS last_ticket,
-          COALESCE((SELECT SUM(net) FROM pm WHERE pm.staff_id=st.id AND pm.ptype=' -1'),0) AS cash_net
-        FROM co JOIN mp_staff st ON st.id=co.staff_id AND st.kantin_slug=${K}
-        WHERE NOT co.void GROUP BY st.id, st.fname, st.sname) c),
       'payment_types', (SELECT COALESCE(json_agg(p ORDER BY p.net DESC),'[]'::json) FROM (
         SELECT ptype AS payment_type, COUNT(*) AS cnt, COALESCE(SUM(paid),0) AS tendered,
                COALESCE(SUM(balance),0) AS change_due, COALESCE(SUM(net),0) AS net
-        FROM pm GROUP BY ptype) p),
+        FROM pmsel GROUP BY ptype) p),
       'pay_matrix', (SELECT COALESCE(json_agg(m ORDER BY m.d DESC),'[]'::json) FROM (
         SELECT d, json_object_agg(ptype, net) AS by_type, SUM(net) AS total
-        FROM (SELECT d, ptype, SUM(net) AS net FROM pm GROUP BY d, ptype) z
-        GROUP BY d ORDER BY d DESC LIMIT 30) m)
+        FROM (SELECT d, ptype, SUM(net) AS net FROM pmsel GROUP BY d, ptype) z
+        GROUP BY d ORDER BY d DESC
+        LIMIT CASE WHEN ${from}::date IS NULL AND ${to}::date IS NULL THEN 60 END) m)
     ) AS payload
   `
   const p = rows[0]?.payload ?? {}
@@ -390,13 +391,77 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
   const payTypeNames = Array.from(new Set((p.pay_matrix ?? []).flatMap((m: any) => Object.keys(m.by_type ?? {})))).sort() as string[]
   return {
     meta: { lastSaleDate: p.meta?.last_sale ?? null },
-    kpis: {
-      todayGross: n(p.kpis?.today_gross), todayTickets: n(p.kpis?.today_tickets),
-      prevGross: n(p.kpis?.prev_gross), prevDate: p.kpis?.prev_date ?? null, todayDate: p.kpis?.today_date ?? null,
-      cashNet: n(p.kpis?.cash_net), nonCashNet: n(p.kpis?.noncash_net), openSessions: n(p.kpis?.open_sessions),
-      walkInTickets: n(p.kpis?.walkin_tickets), namedTickets: n(p.kpis?.named_tickets),
-    },
     daily,
+    paymentTypes: (p.payment_types ?? []).map((x: any) => ({ paymentType: x.payment_type, count: n(x.cnt), tendered: n(x.tendered), changeDue: n(x.change_due), netPaid: n(x.net) })),
+    payMatrix: (p.pay_matrix ?? []).map((m: any) => {
+      const byType: Record<string, number> = {}
+      for (const [k2, v] of Object.entries(m.by_type ?? {})) byType[k2] = n(v)
+      return { saleDate: m.d, byType, total: n(m.total) }
+    }),
+    payTypeNames,
+    range: {
+      from: p.range?.from ?? null, to: p.range?.to ?? null, first: p.range?.first ?? null, last: p.range?.last ?? null,
+      days: n(p.range?.days), tickets: n(p.range?.tickets), gross: n(p.range?.gross),
+      cash: n(p.range?.cash), credit: n(p.range?.credit), foodPanda: n(p.range?.foodpanda),
+      voids: n(p.range?.voids), cancels: n(p.range?.cancels), refunds: n(p.range?.refunds),
+    },
+    periods: (() => {
+      const per = (x: any): H8Period => ({ gross: n(x?.gross), tickets: n(x?.tickets), from: x?.from ?? null, to: x?.to ?? null })
+      const q = p.periods ?? {}
+      return { anchor: q.anchor ?? null, last7: per(q.last7), prev7: per(q.prev7), last30: per(q.last30), prev30: per(q.prev30), mtd: per(q.mtd), prevMtd: per(q.prev_mtd) }
+    })(),
+  }
+}
+
+// =========================================================================
+// CASHIERS & Z-REPORT — sessions and per-cashier accountability.
+// =========================================================================
+
+export async function getH8CashiersLive(slug: string = DEFAULT_KANTIN): Promise<H8CashiersLive> {
+  const K = slug
+  const rows = await prisma.$queryRaw<{ payload: any }[]>`
+    WITH co AS MATERIALIZED (
+      SELECT receipt_id, staff_id, total, void, created, created::date AS d
+      FROM mp_checkout WHERE kantin_slug=${K}
+    ),
+    -- Net cash handled per cashier, aggregated once (not once per staff row).
+    staff_cash AS MATERIALIZED (
+      SELECT p.staff_id, COALESCE(SUM(p.paid - p.balance),0) AS net
+      FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
+      WHERE p.kantin_slug=${K} AND p.payment_time IS NOT NULL AND pt.title=' -1'
+      GROUP BY p.staff_id
+    ),
+    sess_agg AS MATERIALIZED (
+      SELECT r.session_id, COUNT(*) FILTER (WHERE NOT c.void) AS tickets,
+             COALESCE(SUM(c.total) FILTER (WHERE NOT c.void),0) AS gross
+      FROM mp_receipt r JOIN co c ON c.receipt_id = r.id
+      WHERE r.kantin_slug=${K}
+      GROUP BY r.session_id
+    )
+    SELECT json_build_object(
+      'open_sessions', (SELECT COUNT(*) FROM mp_session WHERE kantin_slug=${K} AND close_time IS NULL),
+      'sessions', (SELECT COALESCE(json_agg(s ORDER BY s.start_time DESC),'[]'::json) FROM (
+        SELECT se.id, se.start_time, se.close_time, se.petty_cash,
+          (s1.fname||' '||s1.sname) AS opened_by,
+          CASE WHEN s2.fname IS NULL THEN NULL ELSE s2.fname||' '||s2.sname END AS closed_by,
+          COALESCE(sg.tickets,0) AS tickets, COALESCE(sg.gross,0) AS gross
+        FROM mp_session se
+        LEFT JOIN sess_agg sg ON sg.session_id = se.id
+        LEFT JOIN mp_staff s1 ON s1.id=se.staff_start_id AND s1.kantin_slug=${K}
+        LEFT JOIN mp_staff s2 ON s2.id=se.staff_close_id AND s2.kantin_slug=${K}
+        WHERE se.kantin_slug=${K} ORDER BY se.start_time DESC LIMIT 60) s),
+      'cashiers', (SELECT COALESCE(json_agg(c ORDER BY c.gross DESC),'[]'::json) FROM (
+        SELECT (st.fname||' '||st.sname) AS cashier, COUNT(*) AS tickets, COALESCE(SUM(co.total),0) AS gross,
+          COUNT(DISTINCT co.d) AS days_worked, MIN(co.created) AS first_ticket, MAX(co.created) AS last_ticket,
+          COALESCE(sc.net,0) AS cash_net
+        FROM co JOIN mp_staff st ON st.id=co.staff_id AND st.kantin_slug=${K}
+        LEFT JOIN staff_cash sc ON sc.staff_id=st.id
+        WHERE NOT co.void GROUP BY st.id, st.fname, st.sname, sc.net) c)
+    ) AS payload
+  `
+  const p = rows[0]?.payload ?? {}
+  return {
+    openSessions: n(p.open_sessions),
     sessions: (p.sessions ?? []).map((s: any) => ({
       sessionId: n(s.id), openTime: s.start_time, closeTime: s.close_time ?? null, openedBy: s.opened_by ?? null,
       closedBy: s.closed_by ?? null, status: s.close_time ? "closed" : "open", tickets: n(s.tickets), gross: n(s.gross), pettyCash: n(s.petty_cash),
@@ -406,22 +471,6 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
       avgTicket: n(c.tickets) ? n(c.gross) / n(c.tickets) : 0, daysWorked: n(c.days_worked), cashNet: n(c.cash_net),
       firstTicket: c.first_ticket ?? null, lastTicket: c.last_ticket ?? null,
     })),
-    paymentTypes: (p.payment_types ?? []).map((x: any) => ({ paymentType: x.payment_type, count: n(x.cnt), tendered: n(x.tendered), changeDue: n(x.change_due), netPaid: n(x.net) })),
-    payMatrix: (p.pay_matrix ?? []).map((m: any) => {
-      const byType: Record<string, number> = {}
-      for (const [k2, v] of Object.entries(m.by_type ?? {})) byType[k2] = n(v)
-      return { saleDate: m.d, byType, total: n(m.total) }
-    }),
-    payTypeNames,
-    range: {
-      from: p.range?.from ?? null, to: p.range?.to ?? null, days: n(p.range?.days), tickets: n(p.range?.tickets),
-      gross: n(p.range?.gross), cash: n(p.range?.cash), credit: n(p.range?.credit), foodPanda: n(p.range?.foodpanda),
-    },
-    periods: (() => {
-      const per = (x: any): H8Period => ({ gross: n(x?.gross), tickets: n(x?.tickets), from: x?.from ?? null, to: x?.to ?? null })
-      const q = p.periods ?? {}
-      return { anchor: q.anchor ?? null, last7: per(q.last7), prev7: per(q.prev7), last30: per(q.last30), prev30: per(q.prev30), mtd: per(q.mtd), prevMtd: per(q.prev_mtd) }
-    })(),
   }
 }
 
