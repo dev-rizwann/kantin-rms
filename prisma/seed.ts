@@ -218,11 +218,10 @@ async function seedWorkbookCosting() {
 async function main() {
   const kantins = [
     { slug: "h8", name: "H-8 Kantin", city: "Islamabad", fullAddress: "H-8, Islamabad", isLive: true },
-    { slug: "chak-shahzad", name: "Chak Shahzad Kantin", city: "Islamabad", fullAddress: "Chak Shahzad, Islamabad", isLive: false },
-    { slug: "model-town-multan", name: "Model Town Kantin", city: "Multan", fullAddress: "Model Town, Multan", isLive: false },
+    { slug: "chak-shahzad", name: "Chak Shahzad Kantin", city: "Islamabad", fullAddress: "Chak Shahzad, Islamabad", isLive: true },
   ]
   for (const k of kantins) await prisma.kantin.upsert({ where: { slug: k.slug }, update: k, create: k })
-  console.log("✓ Seeded 3 kantins")
+  console.log("✓ Seeded 2 kantins")
 
   await seedUoms()
 

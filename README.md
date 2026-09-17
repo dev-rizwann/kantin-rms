@@ -3,8 +3,7 @@
 Multi-location Retail Management System for the IESPL Kantin chain.
 
 - **Landing** at `/` lists every kantin and their live status.
-- **H-8 (live)** has the full POS-derived reporting suite under `/h8/*`.
-- **Chak Shahzad** and **Model Town Multan** are placeholders until their POSes are wired up.
+- **H-8** and **Chak Shahzad** are live: POS-derived reporting under `/h8/*` and `/chak-shahzad/*`.
 - **Operations** (GRN, Inventory, Stock-Take) are scaffolded — first sprint of forms next.
 - **Auth** via email + password (NextAuth.js + Postgres + bcrypt).
 - **User management** at `/admin/users` (admin only).
@@ -16,13 +15,12 @@ Deployed on Coolify at <https://kantin.iespl.org>.
 | Location | City | Status |
 | --- | --- | --- |
 | H-8 Kantin | Islamabad | Live (MutfakPos Derby DB synced) |
-| Chak Shahzad Kantin | Islamabad | Coming soon |
-| Model Town Kantin | Multan | Coming soon |
+| Chak Shahzad Kantin | Islamabad | Live (MutfakPos Derby DB synced) |
 
 ## Pages
 
 - `/login` — sign-in form
-- `/` — landing with 3 kantin cards
+- `/` — landing with a card per kantin
 - `/h8/` — overview, daily / Z report, items, categories, cashiers, customers, payments, duplicates, catalog
 - `/h8/grn` — Goods Receipt Notes (placeholder, form coming next)
 - `/h8/inventory` — raw-material stock (placeholder)

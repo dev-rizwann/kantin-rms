@@ -17,7 +17,7 @@ const space = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: "Kantin RMS",
-  description: "Kantin Reporting & Management System — H-8, Chak Shahzad, Model Town Multan",
+  description: "Kantin Reporting & Management System — H-8 and Chak Shahzad",
   icons: {
     icon: [{ url: "/brand/kantin-k.png", type: "image/png", sizes: "512x512" }],
     shortcut: "/brand/kantin-k.png",

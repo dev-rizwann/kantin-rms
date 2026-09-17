@@ -33,11 +33,11 @@ export default async function LandingPage() {
           <div className="mb-6 flex items-baseline justify-between">
             <h2 className="font-display text-lg font-semibold tracking-tight text-stone-800">Locations</h2>
             <span className="text-xs text-stone-500">
-              {kantinList.filter((k) => k.status === "live").length} live · {kantinList.filter((k) => k.status === "coming-soon").length} coming soon
+              {kantinList.filter((k) => k.status === "live").length} live{kantinList.some((k) => k.status !== "live") ? ` · ${kantinList.filter((k) => k.status !== "live").length} coming soon` : ""}
             </span>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2">
             {kantinList.map((k) => {
               const isLive = k.status === "live"
               const data = k.slug === "h8" ? h8 : k.slug === "chak-shahzad" ? chak : null
