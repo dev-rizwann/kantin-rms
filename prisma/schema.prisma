@@ -717,6 +717,22 @@ model AuditLog {
 // POS SYNC — receives raw deltas from canteen PC mirror pushes
 // =========================================================================
 
+/// POS tickets deliberately left out of every report, with the reason. The
+/// mp_checkout and mp_itemsale views (prisma/views.sql) skip these checkouts
+/// and every item line on their receipts, so they vanish from all pages and
+/// exports at once. Nothing is deleted: remove a row to bring a ticket back.
+model ExcludedCheckout {
+  kantinSlug String
+  checkoutId BigInt
+  receiptId  BigInt
+  reason     String
+  createdAt  DateTime @default(now())
+
+  @@id([kantinSlug, checkoutId])
+  @@index([kantinSlug, receiptId])
+  @@map("excluded_checkout")
+}
+
 model SyncBatch {
   id         String   @id @default(cuid())
   kantinSlug String

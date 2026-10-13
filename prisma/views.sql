@@ -25,7 +25,10 @@ WITH expanded AS (
 latest AS (
   SELECT DISTINCT ON (kantin_slug, id)
     id, receipt_id, staff_id, total, rounding, void, created, kantin_slug
-  FROM expanded
+  FROM expanded x
+  -- tickets the owner excluded from reporting (see the excluded_checkout table)
+  WHERE NOT EXISTS (SELECT 1 FROM excluded_checkout e
+                    WHERE e."kantinSlug" = x.kantin_slug AND e."checkoutId" = x.id)
   ORDER BY kantin_slug, id, received_at DESC
 ),
 -- A cashier can re-open a closed ticket and close it again. MutfakPos then
@@ -86,7 +89,10 @@ WITH expanded AS (
 )
 SELECT DISTINCT ON (kantin_slug, id)
   id, receipt_id, item_id, staff_id, price, sale_time, mode, order_status, plate, kantin_slug
-FROM expanded
+FROM expanded x
+-- item lines on receipts whose ticket the owner excluded from reporting
+WHERE NOT EXISTS (SELECT 1 FROM excluded_checkout e
+                  WHERE e."kantinSlug" = x.kantin_slug AND e."receiptId" = x.receipt_id)
 ORDER BY kantin_slug, id, received_at DESC;
 
 CREATE OR REPLACE VIEW mp_payment AS
