@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     -- Receipts with NO live checkout. Not simply "has a void checkout": a ticket
     -- that was re-opened keeps a superseded (void) first close next to its live
     -- one, and its food must stay in.
-    voided AS MATERIALIZED (
+    WITH voided AS MATERIALIZED (
       SELECT receipt_id FROM mp_checkout WHERE kantin_slug = ${K}
       GROUP BY receipt_id HAVING bool_and(void)
     ),
