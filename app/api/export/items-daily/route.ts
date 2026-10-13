@@ -28,7 +28,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "range too large (max 1 year)" }, { status: 400 })
   }
 
-  const rows = await prisma.$queryRaw<{ payload: any }[]>`
+  // The one query where BOTH sides of a join are genuinely large: tickets in the
+  // range x every receipt's item total. The date filter makes the planner guess
+  // the tickets at 1 row and nested-loop them (99 s for Jul-Oct under Prisma's
+  // generic plan). Hash joins only, for this transaction only: 4.4 s.
+  const [, rows] = await prisma.$transaction([
+    prisma.$queryRaw`SELECT set_config('enable_nestloop', 'off', true)`,
+    prisma.$queryRaw<{ payload: any }[]>`
     -- Receipts with NO live checkout. Not simply "has a void checkout": a ticket
     -- that was re-opened keeps a superseded (void) first close next to its live
     -- one, and its food must stay in.
@@ -44,8 +50,9 @@ export async function GET(req: NextRequest) {
       LEFT JOIN mp_cancel cn ON cn.itemsale_id = s.id AND cn.kantin_slug = ${K}
       LEFT JOIN mp_item it ON it.id = s.item_id AND it.kantin_slug = ${K}
       LEFT JOIN mp_category cat ON cat.id = it.category_id AND cat.kantin_slug = ${K}
+      LEFT JOIN voided vd ON vd.receipt_id = s.receipt_id
       WHERE s.kantin_slug = ${K} AND s.sale_time::date BETWEEN ${from}::date AND ${to}::date
-        AND s.receipt_id NOT IN (SELECT receipt_id FROM voided)
+        AND vd.receipt_id IS NULL
     ),
     co AS MATERIALIZED (
       SELECT receipt_id, created::date AS d, total, void
@@ -59,8 +66,10 @@ export async function GET(req: NextRequest) {
       SELECT s.receipt_id, COALESCE(SUM(s.price),0) AS items
       FROM mp_itemsale s
       LEFT JOIN mp_cancel cn ON cn.itemsale_id = s.id AND cn.kantin_slug = ${K}
+      -- no IN (SELECT ... FROM co) filter: against the ~100-row CTE guess that
+      -- became a nested-loop semi-join (export took 147 s). Aggregating every
+      -- receipt once and LEFT JOINing it hashes reliably, as Daily & Cash does.
       WHERE s.kantin_slug = ${K} AND cn.id IS NULL
-        AND s.receipt_id IN (SELECT receipt_id FROM co)
       GROUP BY s.receipt_id
     ),
     -- split per ticket so a discount and an over-charge never net off
@@ -87,7 +96,8 @@ export async function GET(req: NextRequest) {
         FROM co LEFT JOIN dayitems di ON di.d = co.d
         GROUP BY co.d) y)
     ) AS payload
-  `
+  `,
+  ])
   const p = rows[0]?.payload ?? {}
   const n = (v: any) => (v == null ? 0 : Number(v))
   type Line = { d: string; item: string; category: string; qty: number; sales: number }

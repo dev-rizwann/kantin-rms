@@ -52,14 +52,20 @@ export async function getH8OverviewLive(slug: string = DEFAULT_KANTIN): Promise<
       SELECT id, receipt_id, total, void, superseded, created, created::date AS d
       FROM mp_checkout WHERE kantin_slug=${K}
     ),
+    vco AS MATERIALIZED (SELECT id FROM co WHERE void),
     -- Payments against a live ticket only. A ticket that was re-opened and
     -- closed again keeps its first payment row in the POS; the view marks that
     -- first checkout void, so its money must not be counted as collected.
     pmx AS MATERIALIZED (
       SELECT pt.title AS ptype, (p.paid - p.balance) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
+      -- Anti-join against the ~50 void ids, never against all of co. The JSON
+      -- views give the planner ~100-row guesses, so under Prisma's generic plan
+      -- it nested-looped payments x checkouts (40k x 42k; cashiers took 289 s).
+      -- With a small inner side even that worst case is cheap.
+      LEFT JOIN vco ON vco.id = p.checkout_id
       WHERE p.kantin_slug=${K} AND p.payment_time IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM co WHERE co.id = p.checkout_id AND co.void)
+        AND vco.id IS NULL
     ),
     -- Per-session ticket totals, built ONCE. The previous per-session correlated
     -- subquery re-expanded mp_checkout for every receipt row (454 rescans of a
@@ -318,12 +324,18 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
       SELECT id, receipt_id, total, rounding, void, superseded, created::date AS d
       FROM mp_checkout WHERE kantin_slug=${K}
     ),
+    vco AS MATERIALIZED (SELECT id FROM co WHERE void),
     -- Payments against live tickets only (see pmx in the Overview query).
     pm AS MATERIALIZED (
       SELECT p.payment_time::date AS d, pt.title AS ptype, p.paid, p.balance, (p.paid - p.balance) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
+      -- Anti-join against the ~50 void ids, never against all of co. The JSON
+      -- views give the planner ~100-row guesses, so under Prisma's generic plan
+      -- it nested-looped payments x checkouts (40k x 42k; cashiers took 289 s).
+      -- With a small inner side even that worst case is cheap.
+      LEFT JOIN vco ON vco.id = p.checkout_id
       WHERE p.kantin_slug=${K} AND p.payment_time IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM co WHERE co.id = p.checkout_id AND co.void)
+        AND vco.id IS NULL
     ),
     -- Live menu value per ticket, so the daily table can show what the items
     -- priced out at before anything was taken off at the till. Cancelled lines
@@ -475,13 +487,15 @@ export async function getH8CashiersLive(slug: string = DEFAULT_KANTIN): Promise<
       SELECT id, receipt_id, staff_id, total, void, created, created::date AS d
       FROM mp_checkout WHERE kantin_slug=${K}
     ),
+    vco AS MATERIALIZED (SELECT id FROM co WHERE void),
     -- Net cash handled per cashier, aggregated once (not once per staff row),
     -- against live tickets only.
     staff_cash AS MATERIALIZED (
       SELECT p.staff_id, COALESCE(SUM(p.paid - p.balance),0) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
+      LEFT JOIN vco ON vco.id = p.checkout_id
       WHERE p.kantin_slug=${K} AND p.payment_time IS NOT NULL AND pt.title=' -1'
-        AND NOT EXISTS (SELECT 1 FROM co WHERE co.id = p.checkout_id AND co.void)
+        AND vco.id IS NULL
       GROUP BY p.staff_id
     ),
     sess_agg AS MATERIALIZED (
@@ -703,8 +717,9 @@ export async function getH8DayDetailLive(date: string, slug: string = DEFAULT_KA
     pm AS MATERIALIZED (
       SELECT pt.title AS ptype, (p.paid - p.balance) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
+      LEFT JOIN vco ON vco.id = p.checkout_id
       WHERE p.kantin_slug=${K} AND p.payment_time::date = ${date}::date
-        AND NOT EXISTS (SELECT 1 FROM vco WHERE vco.id = p.checkout_id)
+        AND vco.id IS NULL
     )
     SELECT json_build_object(
       'kpis', json_build_object(
