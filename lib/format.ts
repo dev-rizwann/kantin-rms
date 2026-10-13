@@ -1,6 +1,7 @@
 export function money(n: number | null | undefined, opts: { compact?: boolean } = {}): string {
   if (n == null || isNaN(n as number)) return "—"
-  if (opts.compact && Math.abs(n) >= 1_000_000) return "Rs " + (n / 1_000_000).toFixed(2) + "M"
+  // Switch unit on the ROUNDED value, so 999,950 reads "Rs 1.00M", not "Rs 1000.0K".
+  if (opts.compact && Math.abs(n) >= 999_950) return "Rs " + (n / 1_000_000).toFixed(2) + "M"
   if (opts.compact && Math.abs(n) >= 1_000) return "Rs " + (n / 1_000).toFixed(1) + "K"
   return "Rs " + n.toLocaleString("en-PK", { maximumFractionDigits: 2 })
 }
@@ -15,18 +16,33 @@ export function pct(n: number | null | undefined): string {
   return (n * 100).toFixed(1) + "%"
 }
 
+/** A date-only string ("2026-01-05") or a naive POS timestamp, printed as its
+ *  own calendar day. Pinned to UTC: these values carry no zone, and Postgres
+ *  hands them back as if they were UTC, so UTC is the only zone that prints
+ *  them unshifted. Without the pin a browser in Pakistan moved any sale after
+ *  7 PM onto the next day. For real instants use pktDate(). */
 export function shortDate(s: string | null | undefined): string {
   if (!s) return "—"
   const d = new Date(s)
   if (isNaN(d.getTime())) return s
-  return d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" })
+  return d.toLocaleDateString("en-PK", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" })
 }
 
+/** A real instant (login time, GRN received-at) shown as a Pakistan calendar day. */
+export function pktDate(s: string | Date | null | undefined): string {
+  if (!s) return "—"
+  const d = s instanceof Date ? s : new Date(s)
+  if (isNaN(d.getTime())) return String(s)
+  return d.toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", day: "numeric", month: "short", year: "numeric" })
+}
+
+/** A real instant shown in Pakistan time. Never pass a POS timestamp here. */
 export function shortDateTime(s: string | null | undefined): string {
   if (!s) return "—"
   const d = new Date(s)
   if (isNaN(d.getTime())) return s
   return d.toLocaleString("en-PK", {
+    timeZone: "Asia/Karachi",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -84,9 +100,12 @@ export function hourLabel(h: number | null | undefined): string {
   return `${twelve} ${suffix}`
 }
 
+/** Clock time of a naive POS timestamp. Pinned to UTC for the same reason as
+ *  shortDate(): unpinned, the day-orders list (a client component) showed every
+ *  order 5 hours late in a Pakistan browser. */
 export function timeOnly(s: string | null | undefined): string {
   if (!s) return "—"
   const d = new Date(s)
   if (isNaN(d.getTime())) return s
-  return d.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })
+  return d.toLocaleTimeString("en-PK", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" })
 }

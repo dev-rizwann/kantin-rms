@@ -49,8 +49,17 @@ export async function getH8OverviewLive(slug: string = DEFAULT_KANTIN): Promise<
   const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
-      SELECT receipt_id, total, void, created, created::date AS d
+      SELECT id, receipt_id, total, void, superseded, created, created::date AS d
       FROM mp_checkout WHERE kantin_slug=${K}
+    ),
+    -- Payments against a live ticket only. A ticket that was re-opened and
+    -- closed again keeps its first payment row in the POS; the view marks that
+    -- first checkout void, so its money must not be counted as collected.
+    pmx AS MATERIALIZED (
+      SELECT pt.title AS ptype, (p.paid - p.balance) AS net
+      FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
+      WHERE p.kantin_slug=${K} AND p.payment_time IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM co WHERE co.id = p.checkout_id AND co.void)
     ),
     -- Per-session ticket totals, built ONCE. The previous per-session correlated
     -- subquery re-expanded mp_checkout for every receipt row (454 rescans of a
@@ -89,8 +98,8 @@ export async function getH8OverviewLive(slug: string = DEFAULT_KANTIN): Promise<
       'summary', json_build_object(
         'total_tickets', (SELECT COUNT(*) FROM co WHERE NOT void),
         'total_gross', (SELECT COALESCE(SUM(total),0) FROM co WHERE NOT void),
-        'void_tickets', (SELECT COUNT(*) FROM co WHERE void),
-        'void_gross', (SELECT COALESCE(SUM(total),0) FROM co WHERE void)),
+        'void_tickets', (SELECT COUNT(*) FROM co WHERE void AND NOT superseded),
+        'void_gross', (SELECT COALESCE(SUM(total),0) FROM co WHERE void AND NOT superseded)),
       'items_sold', (SELECT COUNT(*) FROM si WHERE NOT canceled),
       'distinct_items_sold', (SELECT COUNT(DISTINCT item_id) FROM si),
       'total_cancels', (SELECT COUNT(*) FROM si WHERE canceled),
@@ -104,12 +113,15 @@ export async function getH8OverviewLive(slug: string = DEFAULT_KANTIN): Promise<
           SELECT category, COALESCE(SUM(price),0) AS total_sales
           FROM si WHERE NOT canceled AND COALESCE(category,'') <> ''
           GROUP BY category ORDER BY 2 DESC LIMIT 8) c),
-      'payment_mix', (SELECT COALESCE(json_agg(p ORDER BY p.net_paid DESC),'[]'::json) FROM (
-          SELECT pt.title AS payment_type, COALESCE(SUM(pm.paid - pm.balance),0) AS net_paid
-          FROM mp_payment pm JOIN mp_paymenttype pt ON pt.id=pm.type_id AND pt.kantin_slug=${K}
-          WHERE pm.kantin_slug=${K}
-          GROUP BY pt.title HAVING COALESCE(SUM(pm.paid - pm.balance),0) > 0
-          ORDER BY 2 DESC LIMIT 6) p),
+      -- Up to six slices; past that the smallest fold into 'Other' so the pie
+      -- always adds up to everything collected (a LIMIT used to drop them).
+      'payment_mix', (SELECT COALESCE(json_agg(p ORDER BY p.rk),'[]'::json) FROM (
+          SELECT CASE WHEN cnt <= 6 OR rk <= 5 THEN payment_type ELSE 'Other' END AS payment_type,
+                 SUM(net_paid) AS net_paid, MIN(rk) AS rk
+          FROM (SELECT ptype AS payment_type, SUM(net) AS net_paid,
+                       ROW_NUMBER() OVER (ORDER BY SUM(net) DESC) AS rk, COUNT(*) OVER () AS cnt
+                FROM pmx GROUP BY ptype HAVING SUM(net) > 0) t
+          GROUP BY 1) p),
       'hourly', (SELECT COALESCE(json_agg(h ORDER BY h.hour_of_day),'[]'::json) FROM (
           SELECT hr AS hour_of_day, COALESCE(SUM(price),0) AS gross
           FROM si WHERE NOT canceled GROUP BY hr ORDER BY hr) h),
@@ -254,6 +266,8 @@ export interface H8DailyRow {
    *  off at the till. `discount` = itemsTotal - gross, and is the only place the
    *  dashboard shows money given away. */
   itemsTotal: number; discount: number
+  /** Charged ABOVE the items on the ticket, e.g. lines cancelled after payment. */
+  overMenu: number
 }
 export interface H8SessionRow {
   sessionId: number; openTime: string; closeTime: string | null; openedBy: string | null
@@ -271,8 +285,9 @@ export interface H8RangeTotals {
   from: string | null; to: string | null; first: string | null; last: string | null
   days: number; tickets: number; gross: number; cash: number; credit: number; foodPanda: number
   voids: number; cancels: number; refunds: number
-  /** Menu value of the tickets, and what was taken off at the till. */
-  itemsTotal: number; discount: number
+  /** Menu value of the tickets, what was taken off at the till, and what was
+   *  charged above the items. itemsTotal - discount + overMenu = gross. */
+  itemsTotal: number; discount: number; overMenu: number
 }
 export interface H8DailyCashLive {
   meta: { lastSaleDate: string | null }
@@ -300,13 +315,15 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
   const to = range?.to || null
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
-      SELECT receipt_id, total, rounding, void, created::date AS d
+      SELECT id, receipt_id, total, rounding, void, superseded, created::date AS d
       FROM mp_checkout WHERE kantin_slug=${K}
     ),
+    -- Payments against live tickets only (see pmx in the Overview query).
     pm AS MATERIALIZED (
       SELECT p.payment_time::date AS d, pt.title AS ptype, p.paid, p.balance, (p.paid - p.balance) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
       WHERE p.kantin_slug=${K} AND p.payment_time IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM co WHERE co.id = p.checkout_id AND co.void)
     ),
     -- Live menu value per ticket, so the daily table can show what the items
     -- priced out at before anything was taken off at the till. Cancelled lines
@@ -318,9 +335,15 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
       WHERE s.kantin_slug=${K} AND cn.id IS NULL
       GROUP BY s.receipt_id
     ),
+    -- Split PER TICKET, not per day: a discount on one ticket and a ticket
+    -- charged above its items on another must not net off against each other.
+    -- menu value - discount + over_menu = gross, exactly, every day.
     dayitems AS MATERIALIZED (
-      SELECT co.d, COALESCE(SUM(ri.items),0) AS items
-      FROM co JOIN rcpt_items ri ON ri.receipt_id = co.receipt_id
+      SELECT co.d,
+             SUM(COALESCE(ri.items,0)) AS items,
+             SUM(GREATEST(COALESCE(ri.items,0) - co.total, 0)) AS discount,
+             SUM(GREATEST(co.total - COALESCE(ri.items,0), 0)) AS over_menu
+      FROM co LEFT JOIN rcpt_items ri ON ri.receipt_id = co.receipt_id
       WHERE NOT co.void GROUP BY co.d
     ),
     -- Aggregate to one row per day FIRST. The daily table and the range totals
@@ -330,7 +353,7 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
         COUNT(*) FILTER (WHERE NOT void) AS tickets,
         COALESCE(SUM(total) FILTER (WHERE NOT void),0) AS gross,
         COALESCE(SUM(rounding) FILTER (WHERE NOT void),0) AS rounding,
-        COUNT(*) FILTER (WHERE void) AS voids
+        COUNT(*) FILTER (WHERE void AND NOT superseded) AS voids
       FROM co GROUP BY d
     ),
     daypay AS MATERIALIZED (
@@ -350,7 +373,8 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
         COALESCE(dp.foodpanda,0) AS foodpanda, COALESCE(dp.credit,0) AS credit,
         COALESCE(cn.nn,0) AS cancels, COALESCE(rf.nn,0) AS refunds,
         COALESCE(di.items,0) AS items_total,
-        COALESCE(di.items,0) - dc.gross AS discount
+        COALESCE(di.discount,0) AS discount,
+        COALESCE(di.over_menu,0) AS over_menu
       FROM dayco dc
       LEFT JOIN daypay dp ON dp.d=dc.d
       LEFT JOIN cancels cn ON cn.d=dc.d
@@ -379,7 +403,8 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
         'tickets', COALESCE(SUM(tickets),0), 'gross', COALESCE(SUM(gross),0),
         'cash', COALESCE(SUM(cash),0), 'foodpanda', COALESCE(SUM(foodpanda),0), 'credit', COALESCE(SUM(credit),0),
         'voids', COALESCE(SUM(voids),0), 'cancels', COALESCE(SUM(cancels),0), 'refunds', COALESCE(SUM(refunds),0),
-        'items_total', COALESCE(SUM(items_total),0), 'discount', COALESCE(SUM(discount),0))
+        'items_total', COALESCE(SUM(items_total),0), 'discount', COALESCE(SUM(discount),0),
+        'over_menu', COALESCE(SUM(over_menu),0))
         FROM sel),
       -- Rolling comparisons anchored to the LATEST SALE DATE, not today, so a
       -- school break does not read as a 100% collapse against a trading week.
@@ -411,7 +436,7 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
   const p = rows[0]?.payload ?? {}
   const daily: H8DailyRow[] = (p.daily ?? []).map((x: any) => {
     const gross = n(x.gross), pay = n(x.payments_net)
-    return { saleDate: x.d, tickets: n(x.tickets), gross, paymentsNet: pay, rounding: n(x.rounding), variance: pay - gross, voids: n(x.voids), cancels: n(x.cancels), refunds: n(x.refunds), cash: n(x.cash), credit: n(x.credit), foodPanda: n(x.foodpanda), itemsTotal: n(x.items_total), discount: n(x.discount) }
+    return { saleDate: x.d, tickets: n(x.tickets), gross, paymentsNet: pay, rounding: n(x.rounding), variance: pay - gross, voids: n(x.voids), cancels: n(x.cancels), refunds: n(x.refunds), cash: n(x.cash), credit: n(x.credit), foodPanda: n(x.foodpanda), itemsTotal: n(x.items_total), discount: n(x.discount), overMenu: n(x.over_menu) }
   })
   const payTypeNames = Array.from(new Set((p.pay_matrix ?? []).flatMap((m: any) => Object.keys(m.by_type ?? {})))).sort() as string[]
   return {
@@ -429,7 +454,7 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
       days: n(p.range?.days), tickets: n(p.range?.tickets), gross: n(p.range?.gross),
       cash: n(p.range?.cash), credit: n(p.range?.credit), foodPanda: n(p.range?.foodpanda),
       voids: n(p.range?.voids), cancels: n(p.range?.cancels), refunds: n(p.range?.refunds),
-      itemsTotal: n(p.range?.items_total), discount: n(p.range?.discount),
+      itemsTotal: n(p.range?.items_total), discount: n(p.range?.discount), overMenu: n(p.range?.over_menu),
     },
     periods: (() => {
       const per = (x: any): H8Period => ({ gross: n(x?.gross), tickets: n(x?.tickets), from: x?.from ?? null, to: x?.to ?? null })
@@ -447,14 +472,16 @@ export async function getH8CashiersLive(slug: string = DEFAULT_KANTIN): Promise<
   const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
-      SELECT receipt_id, staff_id, total, void, created, created::date AS d
+      SELECT id, receipt_id, staff_id, total, void, created, created::date AS d
       FROM mp_checkout WHERE kantin_slug=${K}
     ),
-    -- Net cash handled per cashier, aggregated once (not once per staff row).
+    -- Net cash handled per cashier, aggregated once (not once per staff row),
+    -- against live tickets only.
     staff_cash AS MATERIALIZED (
       SELECT p.staff_id, COALESCE(SUM(p.paid - p.balance),0) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
       WHERE p.kantin_slug=${K} AND p.payment_time IS NOT NULL AND pt.title=' -1'
+        AND NOT EXISTS (SELECT 1 FROM co WHERE co.id = p.checkout_id AND co.void)
       GROUP BY p.staff_id
     ),
     sess_agg AS MATERIALIZED (
@@ -513,6 +540,8 @@ export interface H8Order {
   checkoutId: number; receiptId: number; openTime: string | null; closeTime: string | null
   cashier: string | null; customer: string | null; payments: string[]
   itemCount: number; itemsTotal: number; total: number; rounding: number; void: boolean
+  /** An earlier close of a ticket that was re-opened; counted nowhere. */
+  superseded: boolean
   lines: H8OrderLine[]
 }
 
@@ -520,7 +549,7 @@ export async function getH8DayOrdersLive(date: string, slug: string = DEFAULT_KA
   const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
-      SELECT id, receipt_id, staff_id, total, rounding, void, created
+      SELECT id, receipt_id, staff_id, total, rounding, void, superseded, created
       FROM mp_checkout WHERE kantin_slug=${K} AND created::date = ${date}::date
     ),
     rc AS MATERIALIZED (
@@ -562,7 +591,7 @@ export async function getH8DayOrdersLive(date: string, slug: string = DEFAULT_KA
     SELECT COALESCE(json_agg(o ORDER BY o.close_time DESC NULLS LAST, o.checkout_id DESC),'[]'::json) AS payload
     FROM (
       SELECT co.id AS checkout_id, co.receipt_id, rc.open_time, co.created AS close_time,
-             (st.fname||' '||st.sname) AS cashier, cu.title AS customer, co.total, co.rounding, co.void,
+             (st.fname||' '||st.sname) AS cashier, cu.title AS customer, co.total, co.rounding, co.void, co.superseded,
              COALESCE(pay.payments,'{}') AS payments,
              COALESCE(agg.item_count,0) AS item_count,
              COALESCE(agg.items_total,0) AS items_total,
@@ -582,7 +611,7 @@ export async function getH8DayOrdersLive(date: string, slug: string = DEFAULT_KA
     cashier: (o.cashier ?? "").trim() || null, customer: (o.customer ?? "").trim() || null,
     payments: (o.payments ?? []).map((p: string) => payLabel(p)),
     itemCount: n(o.item_count), itemsTotal: n(o.items_total),
-    total: n(o.total), rounding: n(o.rounding), void: !!o.void,
+    total: n(o.total), rounding: n(o.rounding), void: !!o.void, superseded: !!o.superseded,
     lines: (o.lines ?? []).map((l: any) => ({
       item: l.item, category: l.category ?? null, qty: n(l.qty),
       unitPrice: n(l.unit_price), lineTotal: n(l.line_total), canceled: n(l.canceled),
@@ -654,8 +683,13 @@ export async function getH8DayDetailLive(date: string, slug: string = DEFAULT_KA
   const K = slug
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
     WITH co AS MATERIALIZED (
-      SELECT id, staff_id, total, rounding, void
+      SELECT id, staff_id, total, rounding, void, superseded
       FROM mp_checkout WHERE kantin_slug=${K} AND created::date = ${date}::date
+    ),
+    -- every void checkout for the kantin: a payment landing today can belong
+    -- to a ticket closed (and later re-closed) on another day
+    vco AS MATERIALIZED (
+      SELECT id FROM mp_checkout WHERE kantin_slug=${K} AND void
     ),
     si AS MATERIALIZED (
       SELECT s.id, s.item_id, s.price, EXTRACT(HOUR FROM s.sale_time)::int AS hr,
@@ -670,13 +704,14 @@ export async function getH8DayDetailLive(date: string, slug: string = DEFAULT_KA
       SELECT pt.title AS ptype, (p.paid - p.balance) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
       WHERE p.kantin_slug=${K} AND p.payment_time::date = ${date}::date
+        AND NOT EXISTS (SELECT 1 FROM vco WHERE vco.id = p.checkout_id)
     )
     SELECT json_build_object(
       'kpis', json_build_object(
         'tickets', (SELECT COUNT(*) FROM co WHERE NOT void),
         'gross', (SELECT COALESCE(SUM(total),0) FROM co WHERE NOT void),
         'rounding', (SELECT COALESCE(SUM(rounding),0) FROM co WHERE NOT void),
-        'voids', (SELECT COUNT(*) FROM co WHERE void),
+        'voids', (SELECT COUNT(*) FROM co WHERE void AND NOT superseded),
         'items_sold', (SELECT COUNT(*) FROM si WHERE NOT canceled),
         'distinct_items', (SELECT COUNT(DISTINCT item_id) FROM si WHERE NOT canceled),
         'cancels', (SELECT COUNT(*) FROM si WHERE canceled),

@@ -37,7 +37,7 @@ export async function DailyCashView({ slug, searchParams, headerRight }: {
       <section className="mb-6">
         <SectionHead
           title="Daily summary"
-          context={`${filtered ? `${num(d.daily.length)} days in range` : "last 60 days"} · menu value − discount = gross charged · cash + credit + Food Panda = collected · click a date for the items`}
+          context={`${filtered ? `${num(d.daily.length)} days in range` : "last 60 days"} · menu value − discount (+ anything charged above menu) = gross charged · cash + credit + Food Panda = collected · click a date for the items`}
         />
         <DailyLedger rows={d.daily} slug={slug} />
       </section>

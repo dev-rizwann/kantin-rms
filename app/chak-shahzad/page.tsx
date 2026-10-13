@@ -55,26 +55,26 @@ export default async function ChakShahzadOverview() {
       <KpiStrip items={kpis} />
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Daily gross" sub="last 30 selling days" />
+          <CardHeader title="Daily gross charged" sub="ticket totals · last 30 selling days" />
           <CardBody><MiniLineChart data={d.daily} xKey="sale_date" yKey="gross_total" /></CardBody>
         </Card>
         <Card>
-          <CardHeader title="Payment mix" />
+          <CardHeader title="Payment mix" sub="money collected, all-time" />
           <CardBody><DonutChart data={d.paymentMix} nameKey="payment_type" valueKey="net_paid" /></CardBody>
         </Card>
       </div>
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Top categories" sub="all-time sales" />
+          <CardHeader title="Top categories" sub="menu value · all-time" />
           <CardBody><SimpleBarChart data={d.topCategories} xKey="category" yKey="total_sales" showAllTicks maxTickChars={10} /></CardBody>
         </Card>
         <Card>
-          <CardHeader title="Sales by hour" sub="peak-band signal" />
+          <CardHeader title="Sales by hour" sub="menu value by hour rung" />
           <CardBody><SimpleBarChart data={d.hourly} xKey="hour_of_day" yKey="gross" xFormat="hour" showAllTicks /></CardBody>
         </Card>
       </div>
       <section>
-        <SectionHead title="Top items" context="last 30 days" />
+        <SectionHead title="Top items" context="menu value · last 30 days" />
         <LedgerTable
           rows={d.topItems30d}
           rank

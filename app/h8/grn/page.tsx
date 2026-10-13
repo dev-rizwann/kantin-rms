@@ -2,7 +2,7 @@ import Link from "next/link"
 import { PageHeader } from "@/components/PageHeader"
 import { listGrns } from "@/lib/inventory"
 import { pkr } from "@/lib/money"
-import { shortDate } from "@/lib/format"
+import { pktDate } from "@/lib/format"
 
 export const dynamic = "force-dynamic"
 
@@ -37,7 +37,7 @@ export default async function GrnListPage() {
                   <td className="px-3 py-2 font-medium">
                     <Link href={`/h8/grn/${g.id}`} className="text-coral-600 hover:underline">{g.grnNumber}</Link>
                   </td>
-                  <td className="px-3 py-2">{shortDate(g.receivedAt.toISOString())}</td>
+                  <td className="px-3 py-2">{pktDate(g.receivedAt.toISOString())}</td>
                   <td className="px-3 py-2">{g.vendor?.name ?? (g.isInformal ? "Cash market" : "—")}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{g._count.lines}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{pkr(g.grandTotal as any)}</td>

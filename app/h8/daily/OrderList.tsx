@@ -59,7 +59,9 @@ export function OrderList({ orders, fullDayHref }: { orders: H8Order[]; fullDayH
                   <tr onClick={() => setOpenOrder(expanded && !allOpen ? null : o.checkoutId)} className={"cursor-pointer " + (expanded ? "bg-coral-50/50" : "hover:bg-stone-50")}>
                     <td className="px-1.5 py-[3px] text-center text-[9px] text-stone-400">{expanded ? "▾" : "▸"}</td>
                     <td className="whitespace-nowrap px-2 py-[3px] tabular-nums text-stone-500">{timeOnly(o.closeTime)}</td>
-                    <td className="whitespace-nowrap px-2 py-[3px] tabular-nums text-stone-400">#{o.checkoutId}{o.void && <span className="ml-1 font-semibold text-amber-600">VOID</span>}</td>
+                    <td className="whitespace-nowrap px-2 py-[3px] tabular-nums text-stone-400">#{o.checkoutId}{o.superseded
+                      ? <span className="ml-1 font-semibold text-stone-400" title="This ticket was re-opened and closed again later; only the later close counts">RE-CLOSED</span>
+                      : o.void && <span className="ml-1 font-semibold text-amber-600">VOID</span>}</td>
                     <td className="whitespace-nowrap px-2 py-[3px] text-stone-600">{o.cashier ?? "—"}{o.customer && <span className="ml-1 text-stone-400">· {o.customer}</span>}</td>
                     <td className="max-w-0 truncate px-2 py-[3px] text-stone-700" title={summary}>{summary || <span className="text-stone-300">no items</span>}</td>
                     <td className="whitespace-nowrap px-2 py-[3px] text-right tabular-nums text-stone-400">{num(o.itemCount)}</td>

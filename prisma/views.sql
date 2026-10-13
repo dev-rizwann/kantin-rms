@@ -21,11 +21,31 @@ WITH expanded AS (
     sb."receivedAt"                 AS received_at
   FROM "sync_batch" sb, jsonb_array_elements(sb.rows) row
   WHERE sb."table" = 'CHECKOUT'
+),
+latest AS (
+  SELECT DISTINCT ON (kantin_slug, id)
+    id, receipt_id, staff_id, total, rounding, void, created, kantin_slug
+  FROM expanded
+  ORDER BY kantin_slug, id, received_at DESC
+),
+-- A cashier can re-open a closed ticket and close it again. MutfakPos then
+-- keeps BOTH checkouts live, each with its own payment, so the same food was
+-- counted twice everywhere. In every case seen (20 receipts, Jul-Oct 2026) the
+-- LAST live checkout equals the food on the receipt, so only that one counts;
+-- earlier live checkouts are marked superseded and folded into void, which
+-- every query already filters on. Count genuine voids as void AND NOT superseded.
+ranked AS (
+  SELECT l.*,
+         CASE WHEN l.void THEN 1
+              ELSE ROW_NUMBER() OVER (PARTITION BY l.kantin_slug, l.receipt_id, l.void
+                                      ORDER BY l.created DESC, l.id DESC) END AS live_rank
+  FROM latest l
 )
-SELECT DISTINCT ON (kantin_slug, id)
-  id, receipt_id, staff_id, total, rounding, void, created, kantin_slug
-FROM expanded
-ORDER BY kantin_slug, id, received_at DESC;
+SELECT id, receipt_id, staff_id, total, rounding,
+       (void OR live_rank > 1)       AS void,
+       created, kantin_slug,
+       (NOT void AND live_rank > 1)  AS superseded
+FROM ranked;
 
 CREATE OR REPLACE VIEW mp_receipt AS
 WITH expanded AS (

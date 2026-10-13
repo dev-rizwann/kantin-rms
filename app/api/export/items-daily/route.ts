@@ -29,8 +29,12 @@ export async function GET(req: NextRequest) {
   }
 
   const rows = await prisma.$queryRaw<{ payload: any }[]>`
-    WITH voided AS MATERIALIZED (
-      SELECT receipt_id FROM mp_checkout WHERE kantin_slug = ${K} AND void
+    -- Receipts with NO live checkout. Not simply "has a void checkout": a ticket
+    -- that was re-opened keeps a superseded (void) first close next to its live
+    -- one, and its food must stay in.
+    voided AS MATERIALIZED (
+      SELECT receipt_id FROM mp_checkout WHERE kantin_slug = ${K}
+      GROUP BY receipt_id HAVING bool_and(void)
     ),
     si AS MATERIALIZED (
       SELECT s.sale_time::date AS d, s.price,
@@ -59,9 +63,13 @@ export async function GET(req: NextRequest) {
         AND s.receipt_id IN (SELECT receipt_id FROM co)
       GROUP BY s.receipt_id
     ),
+    -- split per ticket so a discount and an over-charge never net off
     dayitems AS MATERIALIZED (
-      SELECT co.d, COALESCE(SUM(ri.items),0) AS items
-      FROM co JOIN rcpt_items ri ON ri.receipt_id = co.receipt_id
+      SELECT co.d,
+             SUM(COALESCE(ri.items,0)) AS items,
+             SUM(GREATEST(COALESCE(ri.items,0) - co.total, 0)) AS discount,
+             SUM(GREATEST(co.total - COALESCE(ri.items,0), 0)) AS over_menu
+      FROM co LEFT JOIN rcpt_items ri ON ri.receipt_id = co.receipt_id
       WHERE NOT co.void GROUP BY co.d
     )
     SELECT json_build_object(
@@ -73,7 +81,9 @@ export async function GET(req: NextRequest) {
         SELECT co.d,
                COUNT(*) FILTER (WHERE NOT co.void) AS tickets,
                COALESCE(SUM(co.total) FILTER (WHERE NOT co.void), 0) AS gross,
-               COALESCE(MAX(di.items), 0) AS items_total
+               COALESCE(MAX(di.items), 0) AS items_total,
+               COALESCE(MAX(di.discount), 0) AS discount,
+               COALESCE(MAX(di.over_menu), 0) AS over_menu
         FROM co LEFT JOIN dayitems di ON di.d = co.d
         GROUP BY co.d) y)
     ) AS payload
@@ -86,10 +96,13 @@ export async function GET(req: NextRequest) {
   }))
   const daily = (p.daily ?? []).map((y: any) => ({
     d: y.d, tickets: n(y.tickets), gross: n(y.gross), itemsTotal: n(y.items_total),
+    discount: n(y.discount), overMenu: n(y.over_menu),
   }))
   const itemLinesTotal = lines.reduce((s, l) => s + l.sales, 0)
   const ticketsTotal = daily.reduce((s: number, y: any) => s + y.gross, 0)
   const menuValueTotal = daily.reduce((s: number, y: any) => s + y.itemsTotal, 0)
+  const discountTotal = daily.reduce((s: number, y: any) => s + y.discount, 0)
+  const overMenuTotal = daily.reduce((s: number, y: any) => s + y.overMenu, 0)
 
   const dates: string[] = Array.from(new Set(lines.map((l) => l.d))).sort()
   const wb = XLSX.utils.book_new()
@@ -110,7 +123,8 @@ export async function GET(req: NextRequest) {
     [],
     ["Reconciliation"],
     ["Menu value of tickets closed in this range", menuValueTotal],
-    ["Less discounts given at the till", menuValueTotal - ticketsTotal],
+    ["Less discounts given at the till", -discountTotal],
+    ["Plus charged above the items on a ticket (e.g. items cancelled after payment)", overMenuTotal],
     ["Gross charged (matches the portal and the Daily Totals sheet)", ticketsTotal],
     [],
     ["Why the item sheets differ from Gross charged"],
@@ -123,7 +137,8 @@ export async function GET(req: NextRequest) {
     ["Cash reconciliation and deposits", "the Daily & Cash page in the portal"],
     ["Menu mix, item ranking, recipe costing", "the item sheets in this file"],
     [],
-    ["Cancelled item lines and voided tickets are excluded throughout."],
+    ["Cancelled item lines and voided tickets are excluded throughout. A ticket that was re-opened"],
+    ["and closed again counts once, at its last close."],
   ])
   readme["!cols"] = [{ wch: 62 }, { wch: 42 }, { wch: 26 }, { wch: 14 }]
   XLSX.utils.book_append_sheet(wb, readme, "Read me")
@@ -172,11 +187,12 @@ export async function GET(req: NextRequest) {
       Date: y.d,
       Tickets: y.tickets,
       "Menu value (Rs)": y.itemsTotal,
-      "Discount (Rs)": y.itemsTotal - y.gross,
+      "Discount (Rs)": y.discount,
+      "Charged above menu (Rs)": y.overMenu,
       "Gross charged (Rs)": y.gross,
     })),
   )
-  dailyWs["!cols"] = [{ wch: 12 }, { wch: 9 }, { wch: 16 }, { wch: 14 }, { wch: 18 }]
+  dailyWs["!cols"] = [{ wch: 12 }, { wch: 9 }, { wch: 16 }, { wch: 14 }, { wch: 22 }, { wch: 18 }]
   XLSX.utils.book_append_sheet(wb, dailyWs, "Daily Totals")
 
   const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer

@@ -9,7 +9,7 @@ export interface DailyRow {
   saleDate: string; tickets: number; gross: number; paymentsNet: number
   rounding: number; variance: number; voids: number; cancels: number; refunds: number
   cash: number; credit: number; foodPanda: number
-  itemsTotal: number; discount: number
+  itemsTotal: number; discount: number; overMenu: number
 }
 
 type DayState = { loading: boolean; error?: string; data?: H8DayItems }
@@ -74,7 +74,14 @@ export function DailyLedger({ rows, slug = "h8" }: { rows: DailyRow[]; slug?: st
                   <td className="px-3 py-1.5"><span className={"font-medium " + (isOpen ? "text-coral-800" : "text-coral-700")}>{shortDate(r.saleDate)}</span></td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-400">{num(r.tickets)}</td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-500">{money(r.itemsTotal)}</td>
-                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">{Math.round(r.discount) ? <span className="font-medium text-amber-600">{money(r.discount)}</span> : <span className="text-stone-300">—</span>}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">
+                    {Math.round(r.discount) ? <span className="font-medium text-amber-600">{money(r.discount)}</span> : <span className="text-stone-300">—</span>}
+                    {Math.round(r.overMenu) > 0 && (
+                      <div className="text-[10.5px] font-medium text-red-600" title="Charged more than the items on the ticket, e.g. items cancelled after payment">
+                        +{money(r.overMenu)} above menu
+                      </div>
+                    )}
+                  </td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right font-medium tabular-nums text-stone-900">{money(r.gross)}</td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-700">{r.cash ? money(r.cash) : <span className="text-stone-300">—</span>}</td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-600">{r.credit ? money(r.credit) : <span className="text-stone-300">—</span>}</td>

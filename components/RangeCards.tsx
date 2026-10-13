@@ -16,7 +16,10 @@ function Card({ title, value, sub, tone = "default" }: { title: string; value: s
 export function RangeCards({ totals }: { totals: H8RangeTotals }) {
   const filtered = !!(totals.from || totals.to)
   const span = totals.first && totals.last ? `${shortDate(totals.first)} – ${shortDate(totals.last)}` : "no sales in this range"
-  const pct = (v: number) => (totals.gross > 0 ? `${((v / totals.gross) * 100).toFixed(0)}% of revenue` : undefined)
+  // Shares of what was COLLECTED, so cash + credit + Food Panda read 100% between
+  // them. Dividing by revenue charged mixed two bases and never added up.
+  const collected = totals.cash + totals.credit + totals.foodPanda
+  const pct = (v: number) => (collected > 0 ? `${((v / collected) * 100).toFixed(1)}% of collected` : undefined)
   const avgTicket = totals.tickets > 0 ? totals.gross / totals.tickets : 0
   const perDay = totals.days > 0 ? totals.gross / totals.days : 0
 
@@ -31,8 +34,11 @@ export function RangeCards({ totals }: { totals: H8RangeTotals }) {
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
         <Card title="Revenue charged" value={money(totals.gross, { compact: true })} sub={`${num(totals.tickets)} tickets · avg ${money(avgTicket)}`} />
         <Card title="Discounts given" value={money(totals.discount, { compact: true })}
-          sub={totals.itemsTotal > 0 ? `${((totals.discount / totals.itemsTotal) * 100).toFixed(1)}% off ${money(totals.itemsTotal, { compact: true })} menu value` : undefined}
-          tone={totals.discount > 0 ? "warn" : "default"} />
+          sub={[
+            totals.itemsTotal > 0 ? `${((totals.discount / totals.itemsTotal) * 100).toFixed(1)}% off ${money(totals.itemsTotal, { compact: true })} menu value` : null,
+            totals.overMenu > 0.5 ? `${money(totals.overMenu)} charged above menu` : null,
+          ].filter(Boolean).join(" · ") || undefined}
+          tone={totals.discount > 0 || totals.overMenu > 0.5 ? "warn" : "default"} />
         <Card title="Per selling day" value={money(perDay, { compact: true })} sub={totals.days > 0 ? `${num(Math.round(totals.tickets / totals.days))} tickets / day` : undefined} />
         <Card title="Cash" value={money(totals.cash, { compact: true })} sub={pct(totals.cash)} />
         <Card title="Credit" value={money(totals.credit, { compact: true })} sub={pct(totals.credit)} />

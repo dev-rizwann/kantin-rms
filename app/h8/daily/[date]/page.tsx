@@ -45,7 +45,7 @@ export default async function DayDetailPage({ params }: { params: { date: string
   }
 
   const kpis: Kpi[] = [
-    { label: "Gross", value: money(k.gross, { compact: true }), sub: `${num(k.tickets)} tickets · avg ${money(k.avgTicket)}` },
+    { label: "Gross charged", value: money(k.gross, { compact: true }), sub: `${num(k.tickets)} tickets closed · avg ${money(k.avgTicket)}` },
     { label: "Items sold", value: num(k.itemsSold), sub: `${num(k.distinctItems)} distinct` },
     { label: "Cash", value: money(k.cashNet, { compact: true }), sub: "net collected" },
     { label: "Non-cash", value: money(k.nonCashNet, { compact: true }), sub: "bank / card / FP" },
@@ -60,7 +60,7 @@ export default async function DayDetailPage({ params }: { params: { date: string
 
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Sales by hour" />
+          <CardHeader title="Sales by hour" sub="menu value by hour rung" />
           <CardBody><SimpleBarChart data={d.hourly} xKey="hour" yKey="gross" xFormat="hour" showAllTicks /></CardBody>
         </Card>
         <Card>
@@ -79,7 +79,7 @@ export default async function DayDetailPage({ params }: { params: { date: string
       </div>
 
       <section className="mb-6">
-        <SectionHead title="Categories" context={`${d.categories.length} · this day`} />
+        <SectionHead title="Categories" context={`${d.categories.length} · menu value, items rung this day`} />
         <LedgerTable
           rows={d.categories}
           rank
@@ -92,7 +92,7 @@ export default async function DayDetailPage({ params }: { params: { date: string
       </section>
 
       <section className="mb-6">
-        <SectionHead title="Items" context={`${d.items.length} · top sellers first`} />
+        <SectionHead title="Items" context={`${d.items.length} · menu value · top sellers first`} />
         <LedgerTable
           rows={d.items}
           rank
