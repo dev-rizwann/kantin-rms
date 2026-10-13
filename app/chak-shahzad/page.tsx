@@ -38,7 +38,7 @@ export default async function ChakShahzadOverview() {
         : `${deltaPct >= 0 ? "▲" : "▼"} ${Math.abs(deltaPct).toFixed(0)}% vs prev day · ${num(today.tickets)} tickets`,
       tone: deltaPct == null ? "default" : deltaPct >= 0 ? "good" : "bad",
     },
-    { label: "Gross (all-time)", value: money(summary.totalGross, { compact: true }), sub: `${num(meta.daysWithSales)} selling days` },
+    { label: "Gross charged (all-time)", value: money(summary.totalGross, { compact: true }), sub: `ticket totals · ${num(meta.daysWithSales)} selling days` },
     { label: "Tickets", value: num(summary.totalTickets), sub: `avg ${money(avgTicket)}` },
     { label: "Items sold", value: num(summary.itemsSold), sub: `${num(summary.distinctItemsSold)} distinct` },
     { label: "Voids", value: num(summary.voidTickets), tone: summary.voidTickets > 50 ? "warn" : "default" },

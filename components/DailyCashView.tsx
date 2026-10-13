@@ -35,12 +35,15 @@ export async function DailyCashView({ slug, searchParams, headerRight }: {
       <RangeCards totals={d.range} />
 
       <section className="mb-6">
-        <SectionHead title="Daily summary" context={`${filtered ? `${num(d.daily.length)} days in range` : "last 60 days"} · click a date to see what sold · cash + credit + Food Panda = gross`} />
+        <SectionHead
+          title="Daily summary"
+          context={`${filtered ? `${num(d.daily.length)} days in range` : "last 60 days"} · menu value − discount = gross charged · cash + credit + Food Panda = collected · click a date for the items`}
+        />
         <DailyLedger rows={d.daily} slug={slug} />
       </section>
 
       <section className="mb-6">
-        <SectionHead title="Payment types" context={filtered ? "selected range" : "all time"} />
+        <SectionHead title="Payment types" context={`${filtered ? "selected range" : "all time"} · what was collected, not what was charged`} />
         <LedgerTable
           rows={d.paymentTypes}
           cols={[
@@ -54,7 +57,7 @@ export async function DailyCashView({ slug, searchParams, headerRight }: {
       </section>
 
       <section>
-        <SectionHead title="Daily payment split" context="should tie out to deposits" />
+        <SectionHead title="Daily payment split" context="money collected by type · should tie out to deposits" />
         <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(28,25,23,0.04)]">
           <table className="w-full border-collapse text-[13px]">
             <thead>

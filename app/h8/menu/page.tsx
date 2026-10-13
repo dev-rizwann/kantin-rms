@@ -12,7 +12,7 @@ export default async function MenuPage() {
   const kpis: Kpi[] = [
     { label: "Items", value: num(d.kpis.totalItems), sub: `${num(d.kpis.activeItems)} active` },
     { label: "Units sold", value: num(d.kpis.totalQty) },
-    { label: "Sales (all-time)", value: money(d.kpis.totalSales, { compact: true }) },
+    { label: "Menu value sold (all-time)", value: money(d.kpis.totalSales, { compact: true }), sub: "item prices, before till discounts" },
   ]
 
   return (

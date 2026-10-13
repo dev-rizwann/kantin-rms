@@ -26,9 +26,13 @@ export function RangeCards({ totals }: { totals: H8RangeTotals }) {
         <span className="font-semibold uppercase tracking-[0.12em] text-stone-400">{filtered ? "Selected range" : "All time"}</span>
         <span className="tabular-nums text-stone-500">{span}</span>
         {totals.days > 0 && <span className="text-stone-400">· {num(totals.days)} selling days</span>}
+        <span className="text-stone-400">· revenue is what the till charged; cash, credit and Food Panda are what was collected</span>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-        <Card title="Revenue" value={money(totals.gross, { compact: true })} sub={`${num(totals.tickets)} tickets · avg ${money(avgTicket)}`} />
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+        <Card title="Revenue charged" value={money(totals.gross, { compact: true })} sub={`${num(totals.tickets)} tickets · avg ${money(avgTicket)}`} />
+        <Card title="Discounts given" value={money(totals.discount, { compact: true })}
+          sub={totals.itemsTotal > 0 ? `${((totals.discount / totals.itemsTotal) * 100).toFixed(1)}% off ${money(totals.itemsTotal, { compact: true })} menu value` : undefined}
+          tone={totals.discount > 0 ? "warn" : "default"} />
         <Card title="Per selling day" value={money(perDay, { compact: true })} sub={totals.days > 0 ? `${num(Math.round(totals.tickets / totals.days))} tickets / day` : undefined} />
         <Card title="Cash" value={money(totals.cash, { compact: true })} sub={pct(totals.cash)} />
         <Card title="Credit" value={money(totals.credit, { compact: true })} sub={pct(totals.credit)} />

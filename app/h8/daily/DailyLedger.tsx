@@ -9,6 +9,7 @@ export interface DailyRow {
   saleDate: string; tickets: number; gross: number; paymentsNet: number
   rounding: number; variance: number; voids: number; cancels: number; refunds: number
   cash: number; credit: number; foodPanda: number
+  itemsTotal: number; discount: number
 }
 
 type DayState = { loading: boolean; error?: string; data?: H8DayItems }
@@ -51,7 +52,9 @@ export function DailyLedger({ rows, slug = "h8" }: { rows: DailyRow[]; slug?: st
             <th className={TH + " w-6"} />
             <th className={TH + " text-left"}>Date</th>
             <th className={TH + " text-right"}>Tickets</th>
-            <th className={TH + " text-right"}>Gross</th>
+            <th className={TH + " text-right"}>Menu value</th>
+            <th className={TH + " text-right"}>Discount</th>
+            <th className={TH + " text-right"}>Gross charged</th>
             <th className={TH + " text-right"}>Cash</th>
             <th className={TH + " text-right"}>Credit</th>
             <th className={TH + " text-right"}>Food Panda</th>
@@ -60,7 +63,7 @@ export function DailyLedger({ rows, slug = "h8" }: { rows: DailyRow[]; slug?: st
           </tr>
         </thead>
         <tbody className="divide-y divide-stone-100">
-          {rows.length === 0 && <tr><td colSpan={9} className="px-3 py-10 text-center text-sm text-stone-500">No data</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={11} className="px-3 py-10 text-center text-sm text-stone-500">No data</td></tr>}
           {rows.map((r) => {
             const isOpen = open === r.saleDate
             const state = days[r.saleDate]
@@ -70,6 +73,8 @@ export function DailyLedger({ rows, slug = "h8" }: { rows: DailyRow[]; slug?: st
                   <td className="px-2 py-1.5 text-center text-[10px] text-stone-400">{isOpen ? "▾" : "▸"}</td>
                   <td className="px-3 py-1.5"><span className={"font-medium " + (isOpen ? "text-coral-800" : "text-coral-700")}>{shortDate(r.saleDate)}</span></td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-400">{num(r.tickets)}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-500">{money(r.itemsTotal)}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">{Math.round(r.discount) ? <span className="font-medium text-amber-600">{money(r.discount)}</span> : <span className="text-stone-300">—</span>}</td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right font-medium tabular-nums text-stone-900">{money(r.gross)}</td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-700">{r.cash ? money(r.cash) : <span className="text-stone-300">—</span>}</td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-stone-600">{r.credit ? money(r.credit) : <span className="text-stone-300">—</span>}</td>
@@ -77,7 +82,7 @@ export function DailyLedger({ rows, slug = "h8" }: { rows: DailyRow[]; slug?: st
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">{r.voids ? <span className="font-medium text-amber-600">{num(r.voids)}</span> : <span className="text-stone-300">—</span>}</td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">{r.cancels + r.refunds ? <span className="font-medium text-red-600">{r.cancels}/{r.refunds}</span> : <span className="text-stone-300">—</span>}</td>
                 </tr>
-                {isOpen && <tr><td colSpan={9} className="border-y border-stone-200 bg-stone-50/70 px-3 py-2.5">
+                {isOpen && <tr><td colSpan={11} className="border-y border-stone-200 bg-stone-50/70 px-3 py-2.5">
                   {!state || state.loading
                     ? <div className="py-4 text-center text-[12px] text-stone-400">Loading sales for {shortDate(r.saleDate)}…</div>
                     : state.error
