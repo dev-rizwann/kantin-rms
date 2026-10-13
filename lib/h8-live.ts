@@ -57,7 +57,9 @@ export async function getH8OverviewLive(slug: string = DEFAULT_KANTIN): Promise<
     -- closed again keeps its first payment row in the POS; the view marks that
     -- first checkout void, so its money must not be counted as collected.
     pmx AS MATERIALIZED (
-      SELECT pt.title AS ptype, (p.paid - p.balance) AS net
+      -- money RECEIVED: a negative balance is an amount still owed, not change
+      -- given; counting it as received overstated collections (see payNet note).
+      SELECT pt.title AS ptype, (p.paid - GREATEST(p.balance, 0)) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
       -- Anti-join against the ~50 void ids, never against all of co. The JSON
       -- views give the planner ~100-row guesses, so under Prisma's generic plan
@@ -327,7 +329,12 @@ export async function getH8DailyCashLive(slug: string = DEFAULT_KANTIN, range?: 
     vco AS MATERIALIZED (SELECT id FROM co WHERE void),
     -- Payments against live tickets only (see pmx in the Overview query).
     pm AS MATERIALIZED (
-      SELECT p.payment_time::date AS d, pt.title AS ptype, p.paid, p.balance, (p.paid - p.balance) AS net
+      -- MutfakPos writes a payment with paid=0 and balance=-total when a ticket is
+      -- closed unpaid, then a second row when it is paid. balance >= 0 is change
+      -- handed back; balance < 0 is still owed. Money received = paid - max(balance,0).
+      -- tendered - balance counted the owed row as cash: H-8 +Rs 6,200, Chak +Rs 500.
+      SELECT p.payment_time::date AS d, pt.title AS ptype, p.paid,
+             GREATEST(p.balance, 0) AS balance, (p.paid - GREATEST(p.balance, 0)) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
       -- Anti-join against the ~50 void ids, never against all of co. The JSON
       -- views give the planner ~100-row guesses, so under Prisma's generic plan
@@ -491,7 +498,7 @@ export async function getH8CashiersLive(slug: string = DEFAULT_KANTIN): Promise<
     -- Net cash handled per cashier, aggregated once (not once per staff row),
     -- against live tickets only.
     staff_cash AS MATERIALIZED (
-      SELECT p.staff_id, COALESCE(SUM(p.paid - p.balance),0) AS net
+      SELECT p.staff_id, COALESCE(SUM(p.paid - GREATEST(p.balance, 0)),0) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
       LEFT JOIN vco ON vco.id = p.checkout_id
       WHERE p.kantin_slug=${K} AND p.payment_time IS NOT NULL AND pt.title=' -1'
@@ -715,7 +722,9 @@ export async function getH8DayDetailLive(date: string, slug: string = DEFAULT_KA
       WHERE s.kantin_slug=${K} AND s.sale_time::date = ${date}::date
     ),
     pm AS MATERIALIZED (
-      SELECT pt.title AS ptype, (p.paid - p.balance) AS net
+      -- money RECEIVED: a negative balance is an amount still owed, not change
+      -- given; counting it as received overstated collections (see payNet note).
+      SELECT pt.title AS ptype, (p.paid - GREATEST(p.balance, 0)) AS net
       FROM mp_payment p JOIN mp_paymenttype pt ON pt.id=p.type_id AND pt.kantin_slug=${K}
       LEFT JOIN vco ON vco.id = p.checkout_id
       WHERE p.kantin_slug=${K} AND p.payment_time::date = ${date}::date
