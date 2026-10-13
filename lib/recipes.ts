@@ -89,8 +89,12 @@ interface PosItemRollup {
 }
 
 async function getPosRollup(kantinSlug: string, from?: string, to?: string): Promise<PosItemRollup[]> {
-  const start = from ? new Date(`${from}T00:00:00+05:00`) : new Date("2000-01-01T00:00:00+05:00")
-  const end = to ? new Date(`${to}T23:59:59.999+05:00`) : new Date("2100-01-01T00:00:00+05:00")
+  // Plain calendar dates, compared against sale_time::date. sale_time is a
+  // zone-less PKT clock reading; turning the range into +05:00 instants made
+  // Postgres compare it as UTC, so the window ran 7 PM the evening before to
+  // 7 PM on the last day.
+  const start = from ?? "2000-01-01"
+  const end = to ?? "2100-01-01"
   return prisma.$queryRaw<PosItemRollup[]>(Prisma.sql`
     WITH items AS MATERIALIZED (
       SELECT i.id, i.title, i.price, c.title AS category
@@ -105,10 +109,13 @@ async function getPosRollup(kantinSlug: string, from?: string, to?: string): Pro
         (SELECT COALESCE(jsonb_object_agg(itemsale_id::text, true), '{}'::jsonb)
          FROM (SELECT DISTINCT itemsale_id FROM mp_refund WHERE kantin_slug=${kantinSlug}) r) AS refunded
     ),
+    -- A receipt counts when it has at least one LIVE checkout. bool_and, not
+    -- bool_or: a re-opened ticket keeps a superseded (void) first close next to
+    -- its live one, and bool_or threw its food away.
     checkout_map AS MATERIALIZED (
       SELECT COALESCE(jsonb_object_agg(receipt_id::text, void), '{}'::jsonb) AS states
       FROM (
-        SELECT receipt_id, bool_or(void) AS void
+        SELECT receipt_id, bool_and(void) AS void
         FROM mp_checkout WHERE kantin_slug=${kantinSlug} GROUP BY receipt_id
       ) c
     ),
@@ -116,7 +123,7 @@ async function getPosRollup(kantinSlug: string, from?: string, to?: string): Pro
       SELECT s.item_id, COUNT(*) AS units_sold, COALESCE(SUM(s.price),0) AS sales
       FROM mp_itemsale s CROSS JOIN blocked b CROSS JOIN checkout_map co
       WHERE s.kantin_slug=${kantinSlug}
-        AND s.sale_time >= ${start} AND s.sale_time <= ${end}
+        AND s.sale_time::date BETWEEN ${start}::date AND ${end}::date
         AND NOT (b.canceled ? s.id::text)
         AND NOT (b.refunded ? s.id::text)
         AND co.states ->> s.receipt_id::text = 'false'
