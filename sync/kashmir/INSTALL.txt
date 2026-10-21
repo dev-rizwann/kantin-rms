@@ -1,0 +1,33 @@
+Kantin - Kashmir Automatic Reporting
+
+Install once on the Kashmir POS, under the Windows account that runs Kantin:
+1. Extract the entire ZIP to a new folder.
+2. Double-click Install Kashmir Sync.cmd.
+3. Leave Kantin Server running. A current verified engine backup is required.
+
+No POS restart is required. The installer does not stop the POS or modify sales.
+The scheduled task runs hourly and at login while this Windows user is logged in.
+No Internet connection is required for local selling. A missed upload catches up
+from the next verified backup when the Internet connection returns.
+
+Portal: https://kantin.iespl.org/kashmir
+Status until go-live: Awaiting the first real trading date.
+No sales are uploaded before the portal's go-live boundary is explicitly set.
+Registration freezes the pre-launch receipt ID boundary. Receipts before that ID
+or before the confirmed Pakistan-local opening timestamp are excluded. Orders
+containing QA/test/demo/training-labelled items or categories are excluded too.
+
+Before the first real sale: finish all testing, close the test shift, and confirm
+the first real trading date/time with the portal administrator. Do not rename QA
+items into real menu items or reset/reinstall the database after registration.
+An installation identity change is blocked and requires administrator review.
+
+Installed files: %LOCALAPPDATA%\KantinReportingKashmir
+Scheduled task: Kantin-Kashmir-Reporting
+Diagnostic logs: %LOCALAPPDATA%\KantinReportingKashmir\logs
+Default POS: %LOCALAPPDATA%\KantinPOS-Clean
+
+Keep this package private. provisioning.json contains a Kashmir-only upload
+credential. The installed token is encrypted for the current Windows user.
+Staff PINs, passwords and phone numbers are not exported to the reporting portal.
+Only this Kantin portal is contacted; no software-vendor services are used.

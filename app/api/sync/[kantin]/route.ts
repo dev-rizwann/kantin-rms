@@ -39,6 +39,9 @@ const PayloadSchema = z.object({
 export async function POST(req: NextRequest, ctx: { params: { kantin: string } }) {
   const start = Date.now()
   const kantinSlug = ctx.params.kantin
+  // Kashmir requires the fail-closed v2 boundary, including when an encoded
+  // URL resolves through this dynamic legacy route instead of its static route.
+  if (kantinSlug === "kashmir") return NextResponse.json({ ok: false, error: "Kashmir requires the dedicated snapshot endpoint" }, { status: 409 })
 
   // 1. Auth
   const auth = req.headers.get("authorization")

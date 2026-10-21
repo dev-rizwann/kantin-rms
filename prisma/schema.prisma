@@ -773,3 +773,17 @@ model SyncToken {
 
   @@map("sync_token")
 }
+
+/// Separate, fail-closed reporting boundary for the new Kantin POS agent.
+/// firstTradingLocal is a Pakistan wall-clock timestamp, NOT UTC.
+model ReportingBoundary {
+  kantinSlug       String    @id
+  firstTradingLocal String?
+  instanceId       String?
+  receiptBaseline  Int?
+  registeredAt     DateTime?
+  lastBackupAt     DateTime?
+  updatedAt        DateTime  @updatedAt
+
+  @@map("reporting_boundary")
+}

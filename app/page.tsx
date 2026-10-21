@@ -5,12 +5,18 @@ import { money, num, shortDate } from "@/lib/format"
 import { requireSession } from "@/lib/session"
 import { UserMenu } from "@/components/UserMenu"
 import { getH8LandingSummary } from "@/lib/h8-live"
+import { can } from "@/lib/permissions"
+import { prisma } from "@/lib/prisma"
 
 export const dynamic = "force-dynamic"
 
 export default async function LandingPage() {
   const session = await requireSession()
-  const [h8, chak] = await Promise.all([getH8LandingSummary("h8"), getH8LandingSummary("chak-shahzad")])
+  const locations = kantinList.filter((k) => can(session.user, "report.view", k.slug))
+  const [summaries, boundary] = await Promise.all([
+    Promise.all(locations.map((k) => getH8LandingSummary(k.slug))),
+    prisma.reportingBoundary.findUnique({ where: { kantinSlug: "kashmir" } }),
+  ])
 
   return (
     <main className="flex min-h-screen flex-col">
@@ -33,14 +39,14 @@ export default async function LandingPage() {
           <div className="mb-6 flex items-baseline justify-between">
             <h2 className="font-display text-lg font-semibold tracking-tight text-stone-800">Locations</h2>
             <span className="text-xs text-stone-500">
-              {kantinList.filter((k) => k.status === "live").length} live{kantinList.some((k) => k.status !== "live") ? ` · ${kantinList.filter((k) => k.status !== "live").length} coming soon` : ""}
+              {locations.length} locations
             </span>
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">
-            {kantinList.map((k) => {
-              const isLive = k.status === "live"
-              const data = k.slug === "h8" ? h8 : k.slug === "chak-shahzad" ? chak : null
+            {locations.map((k, index) => {
+              const isLive = k.slug === "kashmir" ? !!boundary?.firstTradingLocal : k.status === "live"
+              const data = summaries[index]
               return (
                 <Link
                   key={k.slug}
@@ -62,7 +68,7 @@ export default async function LandingPage() {
                         Live
                       </span>
                     ) : (
-                      <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-500">Coming soon</span>
+                      <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-500">Awaiting go-live</span>
                     )}
                   </div>
 
@@ -92,7 +98,7 @@ export default async function LandingPage() {
                     </div>
                   ) : (
                     <div className="mt-5 border-t border-stone-100 pt-5 text-sm text-stone-500">
-                      No POS data synced yet. This location will go live once its system is connected.
+                      {k.slug === "kashmir" ? "First real trading date not yet confirmed. QA and pre-launch sales are excluded." : "No POS data synced yet. This location will go live once its system is connected."}
                     </div>
                   )}
                 </Link>
