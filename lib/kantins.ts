@@ -6,13 +6,13 @@ export interface KantinMeta {
   city: string
   short: string
   fullAddress: string
-  status: "live" | "coming-soon"
+  status: "live" | "setup"
 }
 
 export const kantins: Record<KantinSlug, KantinMeta> = {
   "h8": { slug: "h8", name: "H-8 Kantin", city: "Islamabad", short: "H-8", fullAddress: "H-8, Islamabad", status: "live" },
   "chak-shahzad": { slug: "chak-shahzad", name: "Chak Shahzad Kantin", city: "Islamabad", short: "Chak Shahzad", fullAddress: "Chak Shahzad, Islamabad", status: "live" },
-  "kashmir": { slug: "kashmir", name: "Kashmir Kantin", city: "AJK", short: "Kashmir", fullAddress: "Kashmir / AJK", status: "coming-soon" },
+  "kashmir": { slug: "kashmir", name: "AJK (Kashmir) Kantin", city: "AJK", short: "AJK (Kashmir)", fullAddress: "Azad Jammu & Kashmir", status: "setup" },
 }
 
 export const kantinList: KantinMeta[] = [kantins["h8"], kantins["chak-shahzad"], kantins["kashmir"]]

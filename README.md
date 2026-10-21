@@ -16,6 +16,7 @@ Deployed on Coolify at <https://kantin.iespl.org>.
 | --- | --- | --- |
 | H-8 Kantin | Islamabad | Live (MutfakPos Derby DB synced) |
 | Chak Shahzad Kantin | Islamabad | Live (MutfakPos Derby DB synced) |
+| AJK (Kashmir) Kantin | AJK | Portal available at `/kashmir`; real sales stay locked until the first trading date is confirmed |
 
 ## Pages
 
