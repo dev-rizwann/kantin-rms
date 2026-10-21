@@ -8,7 +8,9 @@ import { can } from "./permissions"
 const data = { totalGross: 12345, totalTickets: 25, daysWithSales: 2, lastSaleDate: "2026-10-21" }
 const ajk = getKantin("kashmir")
 const pending = renderToStaticMarkup(<LocationCard kantin={ajk} reportingLive={false} data={data} />)
-assert.match(pending, /AJK \(Kashmir\)/)
+assert.match(pending, /MUZAFARABAD \(AJK\)/)
+assert.equal(ajk.name, "MUZAFARABAD (AJK)")
+assert.doesNotMatch(pending, /AJK \(Kashmir\)/)
 assert.match(pending, /href="\/kashmir"/)
 assert.match(pending, /Open dashboard/)
 assert.match(pending, /Portal ready/)
