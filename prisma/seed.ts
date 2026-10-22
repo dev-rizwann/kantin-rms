@@ -219,7 +219,7 @@ async function main() {
   const kantins = [
     { slug: "h8", name: "H-8 Kantin", city: "Islamabad", fullAddress: "H-8, Islamabad", isLive: true },
     { slug: "chak-shahzad", name: "Chak Shahzad Kantin", city: "Islamabad", fullAddress: "Chak Shahzad, Islamabad", isLive: true },
-    { slug: "kashmir", name: "MUZAFARABAD (AJK)", city: "AJK", fullAddress: "Muzafarabad, Azad Jammu & Kashmir", isLive: false },
+    { slug: "kashmir", name: "Muzaffarabad (AJK)", city: "AJK", fullAddress: "Muzaffarabad, Azad Jammu & Kashmir", isLive: false },
   ]
   for (const k of kantins) await prisma.kantin.upsert({ where: { slug: k.slug }, update: k, create: k })
   console.log("✓ Seeded 3 kantins")

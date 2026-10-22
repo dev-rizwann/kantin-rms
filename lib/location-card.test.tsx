@@ -8,8 +8,11 @@ import { can } from "./permissions"
 const data = { totalGross: 12345, totalTickets: 25, daysWithSales: 2, lastSaleDate: "2026-10-21" }
 const ajk = getKantin("kashmir")
 const pending = renderToStaticMarkup(<LocationCard kantin={ajk} reportingLive={false} data={data} />)
-assert.match(pending, /MUZAFARABAD \(AJK\)/)
-assert.equal(ajk.name, "MUZAFARABAD (AJK)")
+assert.match(pending, /Muzaffarabad \(AJK\)/)
+assert.equal(ajk.name, "Muzaffarabad (AJK)")
+assert.equal(ajk.short, "Muzaffarabad (AJK)")
+assert.equal(ajk.fullAddress, "Muzaffarabad, Azad Jammu & Kashmir")
+assert.doesNotMatch(pending, /MUZAFARABAD|Muzafarabad/)
 assert.doesNotMatch(pending, /AJK \(Kashmir\)/)
 assert.match(pending, /href="\/kashmir"/)
 assert.match(pending, /Open dashboard/)
@@ -23,6 +26,10 @@ for (const slug of ["h8", "chak-shahzad", "kashmir"] as const) {
   assert.match(html, /Gross sales/)
   assert.match(html, /Open dashboard/)
   assert.doesNotMatch(html, /Portal ready|awaits the first real trading date/)
+  if (slug === "kashmir") {
+    assert.match(html, /Muzaffarabad \(AJK\)/)
+    assert.doesNotMatch(html, /MUZAFARABAD|Muzafarabad/)
+  }
 }
 const noData = renderToStaticMarkup(<LocationCard kantin={ajk} reportingLive data={null} />)
 assert.match(noData, /No POS sales data synced yet/)
