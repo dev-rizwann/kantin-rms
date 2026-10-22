@@ -4,6 +4,7 @@ import { z } from "zod"
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { filterReportingSnapshot, REPORT_COLUMNS, type ReportTable } from "@/lib/reporting-snapshot"
+import { Launch, prepareLaunch } from "@/lib/reporting-launch"
 
 export const dynamic = "force-dynamic"
 const SLUG = "kashmir"
@@ -42,6 +43,44 @@ export async function POST(req: NextRequest) {
   }
   let body: unknown
   try { body = JSON.parse(Buffer.concat(chunks).toString("utf8")) } catch { return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 }) }
+  if ((body as {mode?: string})?.mode === "activate") {
+    const parsed = Launch.safeParse(body)
+    if (!parsed.success) return NextResponse.json({ ok: false, error: "Invalid launch contract" }, { status: 400 })
+    const data = parsed.data
+    let launch
+    try { launch = prepareLaunch(data, process.env.NEXTAUTH_SECRET || "") }
+    catch { return NextResponse.json({ ok: false, error: "Valid launch permit and fresh empty post-cleanup backup required" }, { status: 400 }) }
+    const { permit, firstTradingLocal, tables, backupAt } = launch
+    try {
+      await prisma.$transaction(async tx => {
+        await tx.$queryRaw`SELECT "kantinSlug" FROM reporting_boundary WHERE "kantinSlug"=${SLUG} FOR UPDATE`
+        const current = await tx.reportingBoundary.findUniqueOrThrow({ where: { kantinSlug: SLUG } })
+        if (current.firstTradingLocal) {
+          const previous = await tx.auditLog.findFirst({ where: { kantinSlug: SLUG, action: "reporting.activated", entityId: SLUG }, orderBy: { occurredAt: "desc" } })
+          const meta = previous?.metadata as Record<string, unknown> | null
+          if (current.instanceId !== data.instanceId || current.firstTradingLocal !== firstTradingLocal || current.receiptBaseline !== data.receiptBaseline || meta?.cleanupId !== data.cleanupId || meta?.permitNonce !== permit.nonce) throw new Error("Launch conflict")
+          // A lost response can be retried, but must never replace newer sales.
+          return
+        }
+        if ((current.instanceId && current.instanceId !== data.instanceId) || (current.receiptBaseline != null && current.receiptBaseline > data.receiptBaseline) || await tx.syncBatch.count({ where: { kantinSlug: SLUG } })) throw new Error("Launch conflict")
+        for (const table of Object.keys(REPORT_COLUMNS) as ReportTable[]) {
+          const rows = tables[table] as Prisma.InputJsonValue[]
+          const highestId = tables[table].reduce((m, r) => Math.max(m, r.id as number), 0)
+          await tx.syncBatch.create({ data: { id: `kantin-v2:${SLUG}:${table}`, kantinSlug: SLUG, table, rows, rowCount: rows.length, highestId, bytes: Buffer.byteLength(JSON.stringify(rows)), receivedAt: new Date() } })
+          await tx.syncState.upsert({ where: { kantinSlug_tableName: { kantinSlug: SLUG, tableName: table } }, create: { kantinSlug: SLUG, tableName: table, lastSeenId: highestId, lastSyncAt: new Date(), totalBatches: 1, totalRows: rows.length }, update: { lastSeenId: highestId, lastSyncAt: new Date(), totalBatches: 1, totalRows: rows.length } })
+        }
+        await tx.reportingBoundary.update({ where: { kantinSlug: SLUG }, data: { instanceId: data.instanceId, receiptBaseline: data.receiptBaseline, firstTradingLocal, registeredAt: current.registeredAt || new Date(), lastBackupAt: backupAt } })
+        await tx.kantin.update({ where: { slug: SLUG }, data: { isLive: true } })
+        await tx.syncToken.update({ where: { kantinSlug: SLUG }, data: { lastUsedAt: new Date() } })
+        await tx.auditLog.create({ data: { kantinSlug: SLUG, action: "reporting.activated", entityType: "ReportingBoundary", entityId: SLUG, summary: "Muzafarabad clean launch; test history excluded", metadata: { instanceId: data.instanceId, cleanupId: data.cleanupId, cleanupUtc: data.cleanupUtc, receiptBaseline: data.receiptBaseline, computerName: data.computerName, permitNonce: permit.nonce, firstTradingLocal } } })
+      }, { timeout: 60000 })
+    } catch (e) {
+      if ((e as Error).message === "Launch conflict") return NextResponse.json({ ok: false, error: "Already active or conflicting installation/history; nothing changed" }, { status: 409 })
+      console.error("Muzafarabad launch transaction failed", (e as Error).name)
+      return NextResponse.json({ ok: false, error: "Launch was not committed; retry later" }, { status: 503 })
+    }
+    return NextResponse.json({ ok: true, status: "active", firstTradingLocal, instanceId: data.instanceId, cleanupId: data.cleanupId })
+  }
   const registration = Registration.safeParse(body)
   if (registration.success) {
     const r = registration.data

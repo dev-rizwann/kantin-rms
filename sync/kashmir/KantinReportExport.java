@@ -43,7 +43,17 @@ public final class KantinReportExport {
             c.setReadOnly(true);
             if(args[0].equals("metadata")) {
                 try(Statement st=c.createStatement();ResultSet r=st.executeQuery("SELECT COALESCE(MAX(ID),0) FROM KANTIN.RECEIPT")) {
-                    r.next();write(output,"{\"instanceId\":"+json(p.getProperty("instanceId"))+",\"receiptBaseline\":"+r.getLong(1)+"}");
+                    r.next();long baseline=r.getLong(1);String cleanup="null";
+                    try(Statement cs=c.createStatement();ResultSet cr=cs.executeQuery("SELECT VALUE FROM KANTIN.PROPERTIES WHERE DEVICEID IS NULL AND TITLE='kantin.muzafarabad.cleanup.v1'")){
+                        if(cr.next()){
+                            String[] m=cr.getString(1).split("\\|",-1);
+                            if(m.length!=7||!m[0].equals("1"))throw new SecurityException("Invalid cleanup evidence");
+                            UUID.fromString(m[1]);java.time.Instant.parse(m[2]);long old=Long.parseLong(m[3]);
+                            cleanup="{\"cleanupId\":"+json(m[1])+",\"cleanupUtc\":"+json(m[2])+",\"receiptBaseline\":"+old+",\"computerName\":"+json(m[6])+"}";
+                            if(cr.next())throw new SecurityException("Duplicate cleanup evidence");
+                        }
+                    }
+                    write(output,"{\"instanceId\":"+json(p.getProperty("instanceId"))+",\"receiptBaseline\":"+baseline+",\"cleanup\":"+cleanup+"}");
                 }
             } else {
                 StringBuilder out=new StringBuilder("{");boolean firstTable=true;

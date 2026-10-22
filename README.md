@@ -90,6 +90,24 @@ npx prisma db seed
 
 Visit <https://kantin.iespl.org/login> and sign in with the admin email/password you set above. **Change the password immediately** via your user menu.
 
+## Muzafarabad clean launch
+
+`/api/sync/kashmir` supports a one-time `activate` request after verified local
+test-transaction cleanup. It requires the existing location-scoped bearer token,
+a seven-day purpose-scoped HMAC launch permit, an empty financial snapshot from
+a fresh verified backup, and a matching installation identity. Activation saves
+the Pakistan-time reporting boundary, initial twelve-table snapshot, live flag,
+and audit record atomically. A retry cannot erase subsequent sales or move the
+boundary. H-8 and Chak Shahzad sync are unchanged.
+
+The Windows package source and tests are tracked in `sync/muzafarabad`, with
+build archives in the parent workspace's `recovery` directory. Cleanup has a
+transactional permanent marker, preserves catalogue/settings and ID counters,
+and creates verified pre/post backups. The replacement reporting worker records
+startup errors, uses an absolute PowerShell path/working directory, and the
+installer verifies both initial HTTPS contact and an actual scheduled run.
+Do not commit provisioning credentials or launch permits.
+
 ## Local dev
 
 ```powershell
